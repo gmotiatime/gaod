@@ -1,6 +1,6 @@
-import React from 'react';
-
+import { Link } from 'react-router-dom';
 import { ArrowUp } from 'lucide-react';
+import MoleculeIcon from './MoleculeIcon';
 
 const Footer = () => {
   return (
@@ -28,6 +28,7 @@ const Footer = () => {
           {/* Middle Section: Links */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-x-12 gap-y-8 text-sm font-medium">
             <div className="flex flex-col gap-4">
+                <Link to="/design" className="hover:text-gray-300 transition-colors">Design</Link>
                 <a href="#" className="hover:text-gray-300 transition-colors">Request Access</a>
                 <a href="#" className="hover:text-gray-300 transition-colors">Enterprise</a>
                 <a href="#" className="hover:text-gray-300 transition-colors">Careers</a>
@@ -60,24 +61,5 @@ const Footer = () => {
     </>
   );
 };
-
-// Reusing the Icon for consistency
-const MoleculeIcon = ({ className }) => (
-  <svg viewBox="0 0 100 100" fill="currentColor" className={className}>
-    <circle cx="50" cy="50" r="12" />
-    <circle cx="50" cy="20" r="10" />
-    <circle cx="80" cy="50" r="10" />
-    <circle cx="50" cy="80" r="10" />
-    <circle cx="20" cy="50" r="10" />
-    <path d="M50 38 L50 20" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
-    <path d="M62 50 L80 50" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
-    <path d="M50 62 L50 80" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
-    <path d="M38 50 L20 50" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
-    <circle cx="29" cy="29" r="8" />
-    <circle cx="71" cy="29" r="8" />
-    <circle cx="71" cy="71" r="8" />
-    <circle cx="29" cy="71" r="8" />
-  </svg>
-);
 
 export default Footer;

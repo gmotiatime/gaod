@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 
 const PricingSection = () => {
@@ -71,7 +71,7 @@ const PricingSection = () => {
             </button>
             
             <div className="mt-auto">
-                <p className="text-xs font-mono uppercase text-gray-400 mb-4 tracking-wider">What's included</p>
+                <p className="text-xs font-mono uppercase text-gray-400 mb-4 tracking-wider">What&apos;s included</p>
                 <ul className="space-y-3 text-sm text-gray-600">
                     <li className="flex items-start gap-2">
                         <span className="border-b border-gray-300 border-dashed pb-0.5">One channel</span> to automatically classify your voice of customer data
