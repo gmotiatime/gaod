@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none" stroke="#1A1A1A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Concept: Automate / Scale (Gears/Process) -->
+  
+  <!-- Big Gear -->
+  <circle cx="70" cy="130" r="30" stroke-width="3" />
+  <path d="M70 90 L70 100" stroke-width="3"/>
+  <path d="M70 160 L70 170" stroke-width="3"/>
+  <path d="M30 130 L40 130" stroke-width="3"/>
+  <path d="M100 130 L110 130" stroke-width="3"/>
+  <!-- Gear Teeth diagonals -->
+  <path d="M42 102 L49 109" stroke-width="3"/>
+  <path d="M91 151 L98 158" stroke-width="3"/>
+  <path d="M42 158 L49 151" stroke-width="3"/>
+  <path d="M91 109 L98 102" stroke-width="3"/>
+  
+  <!-- Center hole -->
+  <circle cx="70" cy="130" r="10" />
+
+  <!-- Small Gear -->
+  <circle cx="130" cy="70" r="20" stroke-width="3" />
+  <path d="M130 45 L130 50" stroke-width="3"/>
+  <path d="M130 90 L130 95" stroke-width="3"/>
+  <path d="M105 70 L110 70" stroke-width="3"/>
+  <path d="M150 70 L155 70" stroke-width="3"/>
+  <!-- Small Gear Teeth Diagonals -->
+  <path d="M113 53 L117 57" stroke-width="3"/>
+  <path d="M143 83 L147 87" stroke-width="3"/>
+  <path d="M113 87 L117 83" stroke-width="3"/>
+  <path d="M143 57 L147 53" stroke-width="3"/>
+
+  <!-- Center hole -->
+  <circle cx="130" cy="70" r="6" />
+
+  <!-- Connection / Process flow -->
+  <path d="M100 100 L110 110" stroke-dasharray="2 2" />
+  
+  <!-- Scale arrow indicating growth/output -->
+  <path d="M160 130 L160 40 L170 50" />
+  <path d="M160 40 L150 50" />
+</svg>

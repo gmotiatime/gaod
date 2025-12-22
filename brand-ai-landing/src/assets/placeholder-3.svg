@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none" stroke="#1A1A1A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Concept: Act / Create (Lightning/Energy) -->
+  
+  <!-- Central Lightning Bolt (filled for emphasis) -->
+  <path d="M110 40 L80 100 L110 100 L90 160 L130 90 L100 90 L110 40 Z" fill="#1A1A1A" stroke="none"/>
+  <!-- Outline for style consistency -->
+  <path d="M110 40 L80 100 L110 100 L90 160 L130 90 L100 90 L110 40 Z" />
+
+  <!-- Action lines / Energy burst -->
+  <path d="M60 80 L40 70" />
+  <path d="M60 120 L40 130" />
+  <path d="M140 80 L160 70" />
+  <path d="M140 120 L160 130" />
+  
+  <path d="M100 30 L100 20" />
+  <path d="M100 170 L100 180" />
+
+  <!-- Chat bubble context (giving command) -->
+  <path d="M40 40 Q30 40 30 50 L30 70 Q30 80 40 80 L60 80 L70 90 L80 80 L100 80" stroke-opacity="0.3" stroke-dasharray="2 2" />
+</svg>

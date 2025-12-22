@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none" stroke="#1A1A1A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Concept: Centralize / Library -->
+  <!-- Background folders/files slightly faded -->
+  <rect x="40" y="40" width="80" height="100" rx="8" stroke-opacity="0.2" />
+  <rect x="120" y="60" width="50" height="60" rx="4" stroke-opacity="0.2" />
+  <circle cx="150" cy="150" r="20" stroke-opacity="0.2" />
+
+  <!-- Main Central Folder -->
+  <path d="M60 80 L90 80 L100 70 L160 70 C165.523 70 170 74.477 170 80 L170 160 C170 165.523 165.523 170 160 170 L60 170 C54.477 170 50 165.523 50 160 L50 90 C50 84.477 54.477 80 60 80 Z" fill="rgba(255,255,255,0.5)" stroke-width="3" />
+  
+  <!-- Arrow indicating gathering -->
+  <path d="M100 40 L110 100" stroke-dasharray="4 4" />
+  <path d="M105 95 L110 100 L115 95" />
+</svg>
