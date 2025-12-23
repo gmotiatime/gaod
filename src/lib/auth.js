@@ -17,7 +17,7 @@ export const auth = {
         return { success: false, error: 'Invalid email or password' };
     } catch (error) {
         console.error("Login error:", error);
-        return { success: false, error: 'Login failed due to system error' };
+        return { success: false, error: 'System error during login. Please try again later.' };
     }
   },
 
@@ -107,7 +107,7 @@ export const auth = {
 
     } catch (err) {
         console.error("Create user error:", err);
-        return { success: false, error: 'System error' };
+        return { success: false, error: 'System error during user creation.' };
     }
   }
 };
