@@ -10,7 +10,7 @@ export const supabaseAdapter = {
         .eq('key', key)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+      if (error && error.code !== 'PGRST116') {
           console.error('Error fetching setting:', error);
       }
       return data?.value || null;
@@ -22,7 +22,6 @@ export const supabaseAdapter = {
 
   setSetting: async (key, value) => {
     try {
-      // Upsert: insert if not exists, update if exists
       const { error } = await supabase
         .from('app_settings')
         .upsert({ key, value }, { onConflict: 'key' });
@@ -60,16 +59,15 @@ export const supabaseAdapter = {
 
   createUser: async (user) => {
     try {
-      // user object should match table columns: id, email, password, name, role, created_at
       const { data, error } = await supabase
         .from('app_users')
         .insert([{
             id: user.id,
             email: user.email,
-            password: user.password,
+            password: user.password, // Ideally hashed
             name: user.name,
             role: user.role,
-            created_at: user.createdAt // Ensure casing matches if needed, but schema says created_at
+            created_at: user.createdAt
         }])
         .select()
         .single();
@@ -86,7 +84,6 @@ export const supabaseAdapter = {
   },
 
   updateUser: async (id, updates) => {
-      // Not strictly needed for the plan but good to have
       try {
           const { data, error } = await supabase
             .from('app_users')
@@ -106,6 +103,9 @@ export const supabaseAdapter = {
   },
 
   // --- CHATS ---
+  // Standardized Message Model:
+  // { id, role, content, createdAt, metadata, tokens }
+
   getChats: async (userId) => {
     try {
       const { data, error } = await supabase
@@ -119,9 +119,6 @@ export const supabaseAdapter = {
         return [];
       }
 
-      // Map back to frontend expected structure if needed
-      // Frontend expects: id, title, messages (json), createdAt, updatedAt
-      // DB columns: id, user_id, title, messages (jsonb), created_at, updated_at
       return data.map(chat => ({
           id: chat.id,
           userId: chat.user_id,
@@ -138,13 +135,23 @@ export const supabaseAdapter = {
 
   createChat: async (chat) => {
     try {
+      // Ensure messages follow the standard model if provided
+      const messages = (chat.messages || []).map(m => ({
+          id: m.id || Date.now().toString(),
+          role: m.role,
+          content: m.content,
+          createdAt: m.createdAt || new Date().toISOString(),
+          metadata: m.metadata || {},
+          tokens: m.tokens || 0
+      }));
+
       const { data, error } = await supabase
         .from('chats')
         .insert([{
             id: chat.id,
-            user_id: chat.userId, // Note: DB column is user_id
+            user_id: chat.userId,
             title: chat.title,
-            messages: chat.messages,
+            messages: messages,
             created_at: chat.createdAt,
             updated_at: chat.createdAt
         }])
@@ -171,10 +178,20 @@ export const supabaseAdapter = {
 
   updateChat: async (id, updates) => {
     try {
-      // Map frontend keys to DB keys if necessary
       const dbUpdates = {};
       if (updates.title) dbUpdates.title = updates.title;
-      if (updates.messages) dbUpdates.messages = updates.messages;
+
+      if (updates.messages) {
+          dbUpdates.messages = updates.messages.map(m => ({
+              id: m.id || Date.now().toString(),
+              role: m.role,
+              content: m.content,
+              createdAt: m.createdAt || new Date().toISOString(),
+              metadata: m.metadata || {},
+              tokens: m.tokens || 0
+          }));
+      }
+
       dbUpdates.updated_at = new Date().toISOString();
 
       const { data, error } = await supabase
@@ -230,9 +247,6 @@ export const supabaseAdapter = {
         console.error('Error fetching all users:', error);
         return [];
       }
-      // Return plain objects, ensure camelCase if needed by frontend,
-      // but current table matches DB columns mostly.
-      // Frontend expects: id, name, email, role, createdAt
       return data.map(u => ({
           id: u.id,
           name: u.name,
