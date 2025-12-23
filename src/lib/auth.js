@@ -61,5 +61,33 @@ export const auth = {
     const users = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
     // eslint-disable-next-line no-unused-vars
     return users.map(({ password: _, ...u }) => u);
+  },
+
+  createUser: async (userData) => {
+    // Check if current user is admin
+    const session = JSON.parse(localStorage.getItem(SESSION_KEY) || '{}');
+    if (session.role !== 'admin') {
+      throw new Error('Unauthorized');
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const users = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+
+    if (users.find(u => u.email === userData.email)) {
+      return { success: false, error: 'Email already exists' };
+    }
+
+    const newUser = {
+      id: `user-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      ...userData
+    };
+
+    users.push(newUser);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+
+    // eslint-disable-next-line no-unused-vars
+    const { password: _, ...userWithoutPassword } = newUser;
+    return { success: true, user: userWithoutPassword };
   }
 };
