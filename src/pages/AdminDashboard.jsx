@@ -10,15 +10,8 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
 
-  // API Keys
-  const [openAiKey, setOpenAiKey] = useState('');
-  const [anthropicKey, setAnthropicKey] = useState('');
-  const [googleAiKey, setGoogleAiKey] = useState('');
-  const [googleImageModel, setGoogleImageModel] = useState('');
-
-  // Search Keys
-  const [googleSearchKey, setGoogleSearchKey] = useState('');
-  const [googleCx, setGoogleCx] = useState('');
+  // Vertex AI Keys
+  const [vertexKey, setVertexKey] = useState('');
 
   // Supabase Config
   const [supabaseUrl, setSupabaseUrl] = useState('');
@@ -29,7 +22,7 @@ const AdminDashboard = () => {
 
   // Custom Models
   const [customModels, setCustomModels] = useState([]);
-  const [newModel, setNewModel] = useState({ name: '', id: '', provider: 'openai' });
+  const [newModel, setNewModel] = useState({ name: '', id: 'gemini-2.5-flash-lite', provider: 'vertex' });
 
   // New User State
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'user' });
@@ -48,13 +41,7 @@ const AdminDashboard = () => {
     setCurrentUser(user);
 
     const loadSettings = async () => {
-        setOpenAiKey(await db.getSetting('gaod_openai_key') || '');
-        setAnthropicKey(await db.getSetting('gaod_anthropic_key') || '');
-        setGoogleAiKey(await db.getSetting('gaod_google_key') || '');
-        setGoogleImageModel(await db.getSetting('gaod_google_image_model') || 'gemini-3-pro-image-preview');
-
-        setGoogleSearchKey(await db.getSetting('gaod_search_key') || '');
-        setGoogleCx(await db.getSetting('gaod_search_cx') || '');
+        setVertexKey(await db.getSetting('gaod_vertex_key') || '');
 
         setSupabaseUrl(localStorage.getItem('brand_ai_supabase_url') || '');
         setSupabaseKey(localStorage.getItem('brand_ai_supabase_key') || '');
@@ -83,13 +70,13 @@ const AdminDashboard = () => {
 
   const handleSaveKeys = async (e) => {
     e.preventDefault();
-    await db.setSetting('gaod_openai_key', openAiKey);
-    await db.setSetting('gaod_anthropic_key', anthropicKey);
-    await db.setSetting('gaod_google_key', googleAiKey);
-    await db.setSetting('gaod_google_image_model', googleImageModel);
-
-    await db.setSetting('gaod_search_key', googleSearchKey);
-    await db.setSetting('gaod_search_cx', googleCx);
+    await db.setSetting('gaod_vertex_key', vertexKey);
+    // Clearing old keys for clarity (optional, but good practice per user request to remove others)
+    await db.setSetting('gaod_openai_key', '');
+    await db.setSetting('gaod_anthropic_key', '');
+    await db.setSetting('gaod_google_key', '');
+    await db.setSetting('gaod_search_key', '');
+    await db.setSetting('gaod_search_cx', '');
 
     setSavedMessage('Configuration saved.');
     setTimeout(() => setSavedMessage(''), 3000);
@@ -139,7 +126,7 @@ const AdminDashboard = () => {
     const updatedModels = [...customModels, { ...newModel, uuid: Date.now() }];
     setCustomModels(updatedModels);
     await db.setSetting('gaod_custom_models', JSON.stringify(updatedModels));
-    setNewModel({ name: '', id: '', provider: 'openai' });
+    setNewModel({ name: '', id: 'gemini-2.5-flash-lite', provider: 'vertex' });
   };
 
   const handleDeleteModel = async (uuid) => {
@@ -342,80 +329,19 @@ create policy "Public Chats" on chats for all using (true);`}
           </div>
 
           <form onSubmit={handleSaveKeys} className="space-y-8">
-
-            {/* Google Search Section */}
-            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                 <div className="flex items-center gap-2 mb-6 text-[#1A1A1A] font-medium text-sm">
-                    <Search className="w-4 h-4" />
-                    <span>Real-Time Web Search</span>
-                 </div>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label className="block text-xs font-medium text-gray-500 uppercase tracking-widest mb-2">Search API Key</label>
-                        <input
-                          type="password"
-                          value={googleSearchKey}
-                          onChange={(e) => setGoogleSearchKey(e.target.value)}
-                          placeholder="AIza..."
-                          className={inputClass}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-500 uppercase tracking-widest mb-2">Search Engine ID (CX)</label>
-                        <input
-                          type="text"
-                          value={googleCx}
-                          onChange={(e) => setGoogleCx(e.target.value)}
-                          placeholder="012345..."
-                          className={inputClass}
-                        />
-                    </div>
-                 </div>
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-widest mb-2">OpenAI API Key</label>
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-widest mb-2">Vertex AI API Key (Google Cloud)</label>
                   <input
                     type="password"
-                    value={openAiKey}
-                    onChange={(e) => setOpenAiKey(e.target.value)}
-                    placeholder="sk-..."
+                    value={vertexKey}
+                    onChange={(e) => setVertexKey(e.target.value)}
+                    placeholder="AQ.Ab..."
                     className={inputClass}
                   />
-                </div>
-
-                <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-widest mb-2">Anthropic API Key</label>
-                    <input
-                    type="password"
-                    value={anthropicKey}
-                    onChange={(e) => setAnthropicKey(e.target.value)}
-                    placeholder="sk-ant-..."
-                    className={inputClass}
-                    />
-                </div>
-
-                <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-widest mb-2">Google AI API Key</label>
-                    <input
-                    type="password"
-                    value={googleAiKey}
-                    onChange={(e) => setGoogleAiKey(e.target.value)}
-                    placeholder="AIza..."
-                    className={inputClass}
-                    />
-                </div>
-
-                <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-widest mb-2">Google Image Model ID</label>
-                    <input
-                    type="text"
-                    value={googleImageModel}
-                    onChange={(e) => setGoogleImageModel(e.target.value)}
-                    placeholder="gemini-3-pro-image-preview"
-                    className={inputClass}
-                    />
+                  <p className="text-[10px] text-gray-400 mt-2">
+                      Access to models like gemini-2.5-flash-lite via aiplatform.googleapis.com
+                  </p>
                 </div>
             </div>
 
@@ -425,7 +351,7 @@ create policy "Public Chats" on chats for all using (true);`}
                 className={primaryButtonClass}
               >
                 <Save className="w-4 h-4" />
-                Save All Keys
+                Save Keys
               </button>
               {savedMessage && (
                 <span className="text-green-600 text-sm font-medium animate-pulse bg-green-50 px-3 py-1 rounded-full">
@@ -453,7 +379,7 @@ create policy "Public Chats" on chats for all using (true);`}
                     <label className="block text-xs text-gray-400 mb-1">Display Name</label>
                     <input
                       type="text"
-                      placeholder="e.g. GPT-4o"
+                      placeholder="e.g. Gemini 2.5 Flash"
                       value={newModel.name}
                       onChange={(e) => setNewModel({...newModel, name: e.target.value})}
                       className={inputClass}
@@ -463,7 +389,7 @@ create policy "Public Chats" on chats for all using (true);`}
                     <label className="block text-xs text-gray-400 mb-1">Model ID</label>
                     <input
                       type="text"
-                      placeholder="e.g. gpt-4o"
+                      placeholder="gemini-2.5-flash-lite"
                       value={newModel.id}
                       onChange={(e) => setNewModel({...newModel, id: e.target.value})}
                       className={inputClass}
@@ -476,9 +402,7 @@ create policy "Public Chats" on chats for all using (true);`}
                        onChange={(e) => setNewModel({...newModel, provider: e.target.value})}
                        className={inputClass}
                     >
-                      <option value="openai">OpenAI</option>
-                      <option value="anthropic">Anthropic</option>
-                      <option value="google">Google</option>
+                      <option value="vertex">Vertex AI</option>
                     </select>
                   </div>
                   <div className="md:col-span-1">
