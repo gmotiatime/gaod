@@ -22,7 +22,7 @@ const AdminDashboard = () => {
 
   // Custom Models
   const [customModels, setCustomModels] = useState([]);
-  const [newModel, setNewModel] = useState({ name: '', id: 'gemini-2.5-flash-lite', provider: 'vertex' });
+  const [newModel, setNewModel] = useState({ name: '', id: 'gemini-1.5-flash', provider: 'vertex' });
 
   // New User State
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'user' });
@@ -71,12 +71,10 @@ const AdminDashboard = () => {
   const handleSaveKeys = async (e) => {
     e.preventDefault();
     await db.setSetting('gaod_vertex_key', vertexKey);
-    // Clearing old keys for clarity (optional, but good practice per user request to remove others)
+    // Clearing old keys for clarity
     await db.setSetting('gaod_openai_key', '');
     await db.setSetting('gaod_anthropic_key', '');
     await db.setSetting('gaod_google_key', '');
-    await db.setSetting('gaod_search_key', '');
-    await db.setSetting('gaod_search_cx', '');
 
     setSavedMessage('Configuration saved.');
     setTimeout(() => setSavedMessage(''), 3000);
@@ -100,15 +98,27 @@ const AdminDashboard = () => {
                   throw error;
               }
           } else {
+              // SAVE Credentials & Mode
               localStorage.setItem('brand_ai_supabase_url', supabaseUrl);
               localStorage.setItem('brand_ai_supabase_key', supabaseKey);
-              if (confirm(`Connection successful! Found ${count !== null ? count : 0} users.\n\nReload page to switch to Supabase mode?`)) {
+
+              // Force Mode Switch
+              localStorage.setItem('gaod_db_mode', 'SUPABASE');
+
+              if (confirm(`Connection successful! Found ${count !== null ? count : 0} users.\n\nReload now to switch to Supabase?`)) {
                   window.location.reload();
               }
           }
       } catch (err) {
           alert(`Connection Failed: ${err.message}`);
           console.error(err);
+      }
+  };
+
+  const handleDisconnectDb = () => {
+      if (confirm("Switch back to Local Storage?")) {
+          localStorage.setItem('gaod_db_mode', 'LOCAL');
+          window.location.reload();
       }
   };
 
@@ -126,7 +136,7 @@ const AdminDashboard = () => {
     const updatedModels = [...customModels, { ...newModel, uuid: Date.now() }];
     setCustomModels(updatedModels);
     await db.setSetting('gaod_custom_models', JSON.stringify(updatedModels));
-    setNewModel({ name: '', id: 'gemini-2.5-flash-lite', provider: 'vertex' });
+    setNewModel({ name: '', id: 'gemini-1.5-flash', provider: 'vertex' });
   };
 
   const handleDeleteModel = async (uuid) => {
@@ -205,13 +215,18 @@ const AdminDashboard = () => {
                 <Database className="w-5 h-5" />
              </div>
              <h2 className="font-serif text-2xl">Database Connection</h2>
+             {localStorage.getItem('gaod_db_mode') === 'SUPABASE' && (
+                 <span className="ml-auto bg-green-100 text-green-700 text-xs px-3 py-1 rounded-full font-bold uppercase">Active: Supabase</span>
+             )}
+              {localStorage.getItem('gaod_db_mode') !== 'SUPABASE' && (
+                 <span className="ml-auto bg-gray-100 text-gray-700 text-xs px-3 py-1 rounded-full font-bold uppercase">Active: Local</span>
+             )}
            </div>
 
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                <div>
                    <p className="text-sm text-gray-600 mb-6 leading-relaxed">
                        Connect to <strong className="text-[#1A1A1A]">Supabase</strong> (PostgreSQL) to sync data across devices.
-                       Leave fields empty to use Local Storage (Offline Mode).
                    </p>
                    <form onSubmit={handleConnectDb} className="space-y-5">
                         <div>
@@ -234,11 +249,16 @@ const AdminDashboard = () => {
                               className={inputClass}
                             />
                         </div>
-                        <div className="pt-2">
+                        <div className="pt-2 flex gap-4">
                             <button type="submit" className={primaryButtonClass}>
                                 <RefreshCcw className="w-4 h-4" />
                                 Test & Connect
                             </button>
+                            {localStorage.getItem('gaod_db_mode') === 'SUPABASE' && (
+                                <button type="button" onClick={handleDisconnectDb} className="bg-white border border-red-200 text-red-500 font-medium py-3 px-6 rounded-full hover:bg-red-50 transition-colors text-sm">
+                                    Disconnect
+                                </button>
+                            )}
                         </div>
                    </form>
                </div>
@@ -331,16 +351,16 @@ create policy "Public Chats" on chats for all using (true);`}
           <form onSubmit={handleSaveKeys} className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-widest mb-2">Vertex AI API Key (Google Cloud)</label>
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-widest mb-2">Vertex AI / Google AI Key</label>
                   <input
                     type="password"
                     value={vertexKey}
                     onChange={(e) => setVertexKey(e.target.value)}
-                    placeholder="AQ.Ab..."
+                    placeholder="AIza..."
                     className={inputClass}
                   />
                   <p className="text-[10px] text-gray-400 mt-2">
-                      Access to models like gemini-2.5-flash-lite via aiplatform.googleapis.com
+                      Access to models via Google AI Studio (Gemini).
                   </p>
                 </div>
             </div>
@@ -379,7 +399,7 @@ create policy "Public Chats" on chats for all using (true);`}
                     <label className="block text-xs text-gray-400 mb-1">Display Name</label>
                     <input
                       type="text"
-                      placeholder="e.g. Gemini 2.5 Flash"
+                      placeholder="e.g. Gemini 1.5 Flash"
                       value={newModel.name}
                       onChange={(e) => setNewModel({...newModel, name: e.target.value})}
                       className={inputClass}
@@ -389,7 +409,7 @@ create policy "Public Chats" on chats for all using (true);`}
                     <label className="block text-xs text-gray-400 mb-1">Model ID</label>
                     <input
                       type="text"
-                      placeholder="gemini-2.5-flash-lite"
+                      placeholder="gemini-1.5-flash"
                       value={newModel.id}
                       onChange={(e) => setNewModel({...newModel, id: e.target.value})}
                       className={inputClass}
@@ -402,7 +422,7 @@ create policy "Public Chats" on chats for all using (true);`}
                        onChange={(e) => setNewModel({...newModel, provider: e.target.value})}
                        className={inputClass}
                     >
-                      <option value="vertex">Vertex AI</option>
+                      <option value="vertex">Vertex (Gemini)</option>
                     </select>
                   </div>
                   <div className="md:col-span-1">

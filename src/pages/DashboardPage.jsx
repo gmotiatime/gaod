@@ -147,15 +147,11 @@ Inside these tags, you can also use <reflection>...</reflection> to critique you
 These tags will be shown to the user to demonstrate your reasoning.
 `;
 
-        // Construct History for Context (Last 10 messages)
-        // Gemini API expects "contents" array
-        // We need to map our format (role: user/assistant) to Gemini (role: user/model)
         const history = activeMessages.slice(-10).map(m => ({
             role: m.role === 'user' ? 'user' : 'model',
             parts: [{ text: m.content }]
         }));
 
-        // Add current message
         const currentMessage = {
              role: 'user',
              parts: [{ text: toolInstructions + "\n\nUser: " + finalContent }]
@@ -168,9 +164,17 @@ These tags will be shown to the user to demonstrate your reasoning.
         // --- REALTIME STREAMING CHAT (Google AI Gemini API) ---
         try {
             if (vertexKey) {
-                // Using generativelanguage.googleapis.com for API Key access (standard for 'Gemini API')
-                // Using :streamGenerateContent
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model.id}:streamGenerateContent?key=${vertexKey}`;
+                // PROXY PATH to avoid CORS
+                // If in dev, use /api/gemini. If prod (no vite proxy), use full URL.
+                // Since this is likely running in Vite dev mode locally, we use the proxy path.
+                // But we need to handle "Production build" case where proxy doesn't exist.
+                // We'll rely on the fact that Google AI Studio supports CORS generally, but if failing locally, proxy helps.
+                // Let's try relative path first, assuming proxy is active.
+
+                const isDev = import.meta.env.DEV;
+                const baseUrl = isDev ? '/api/gemini' : 'https://generativelanguage.googleapis.com';
+
+                const url = `${baseUrl}/v1beta/models/${model.id}:streamGenerateContent?key=${vertexKey}`;
 
                 const payload = { contents };
 
@@ -190,54 +194,30 @@ These tags will be shown to the user to demonstrate your reasoning.
 
                 // Placeholder for streaming message
                 await chatStore.addMessage(activeChatId, 'assistant', '');
-                // We will update this message repeatedly
 
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
 
                     const chunk = decoder.decode(value, { stream: true });
-                    // Gemini stream returns JSON objects, often multiple per chunk or split across chunks
-                    // This simple parsing assumes cleanly delimited JSON or we might need a buffer.
-                    // However, REST stream usually sends standard JSON array elements.
-                    // Actually, for :streamGenerateContent, it returns a JSON array stream but usually wrapped in valid JSON structure if simple fetch?
-                    // No, usually it sends chunks of JSON. Let's handle the typical format.
-                    // Google API usually returns a list of JSON objects, e.g. [{...}, {...}]
-
-                    // Simple regex based extraction for "text" field to be robust against chunk boundaries
-                    // Note: A robust implementation requires a proper stream parser (like SSE or JSON stream).
-                    // For now, let's assume we can regex extract 'text': "..." from the raw string buffer.
-
                     const matches = chunk.matchAll(/"text":\s*"((?:[^"\\]|\\.)*)"/g);
                     for (const match of matches) {
                         try {
-                            const textPart = JSON.parse(`"${match[1]}"`); // Decode escape sequences
+                            const textPart = JSON.parse(`"${match[1]}"`);
                             aiFullText += textPart;
 
-                            // Update UI incrementally (throttled in real app, here direct)
-                            // We need to update the *last* message in the store
                             const currentChats = await chatStore.getChats();
                             const currentChat = currentChats.find(c => c.id === activeChatId);
                             if (currentChat) {
                                 const msgs = [...currentChat.messages];
                                 msgs[msgs.length - 1].content = aiFullText;
-                                // Update store 'silently' or efficiently?
-                                // For now, we use the store's update method which might be slow for every char,
-                                // but acceptable for this demo.
-                                // BETTER: Just update local state `activeMessages` for UI, then save to DB at end.
                                 setActiveMessages(msgs);
                             }
-                        } catch (e) { /* ignore parse errors */ }
+                        } catch (e) { /* ignore */ }
                     }
                     usedRealApi = true;
                 }
 
-                // Final Save to DB
-                // Remove the empty placeholder we added before loop?
-                // Actually we added an empty one. We need to update it now.
-                 // We need to locate that message.
-                 // Limitation of current `chatStore`: it appends.
-                 // Hack: We appended an empty one. Now we update the chat's last message.
                  const finalChat = await chatStore.getChat(activeChatId);
                  const finalMsgs = [...finalChat.messages];
                  finalMsgs[finalMsgs.length - 1].content = aiFullText;
@@ -249,10 +229,11 @@ These tags will be shown to the user to demonstrate your reasoning.
 
         } catch (e) {
             console.error("Chat API Call Failed", e);
-            if (!usedRealApi) aiFullText = `[Error: ${e.message}]`;
+            // Append error to conversation for visibility
+            if (!usedRealApi) aiFullText = `[System Error: ${e.message}]`;
         }
 
-        if (!usedRealApi && !aiFullText.startsWith('[Error')) {
+        if (!usedRealApi && !aiFullText.startsWith('[System Error')) {
              await new Promise(resolve => setTimeout(resolve, 800));
              aiFullText = `<thinking>Simulating response...</thinking> I received: "${content}". (API Key missing or invalid)`;
              await chatStore.addMessage(activeChatId, 'assistant', aiFullText);

@@ -4,6 +4,7 @@ import { Send, Paperclip, ChevronDown, User, Bot, Menu, Sparkles, X, File as Fil
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '../../lib/utils';
+import { db } from '../../lib/db';
 import MoleculeIcon from '../MoleculeIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -83,7 +84,7 @@ ThinkingBlock.propTypes = {
 
 const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
   const [input, setInput] = useState('');
-  const [selectedModel, setSelectedModel] = useState('GPT-4o');
+  const [selectedModel, setSelectedModel] = useState('Gemini 1.5 Flash');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [attachments, setAttachments] = useState([]);
 
@@ -94,14 +95,28 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
   const [availableModels, setAvailableModels] = useState([]);
 
   useEffect(() => {
-    const customModels = JSON.parse(localStorage.getItem('gaod_custom_models') || '[]');
-    setAvailableModels(customModels);
+    const loadModels = async () => {
+        try {
+            // Using DB abstraction instead of localStorage directly
+            const rawModels = await db.getSetting('gaod_custom_models');
+            const customModels = rawModels ? JSON.parse(rawModels) : [];
 
-    if (customModels.length > 0 && !customModels.find(m => m.name === selectedModel)) {
-        setSelectedModel(customModels[0].name);
-    } else if (customModels.length === 0) {
-        setSelectedModel('No Models');
-    }
+            // Add default fallback if no models defined
+            if (customModels.length === 0) {
+                const defaultModel = { name: 'Gemini 1.5 Flash', id: 'gemini-1.5-flash', provider: 'vertex' };
+                setAvailableModels([defaultModel]);
+                setSelectedModel(defaultModel.name);
+            } else {
+                setAvailableModels(customModels);
+                if (!customModels.find(m => m.name === selectedModel)) {
+                    setSelectedModel(customModels[0].name);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load models", e);
+        }
+    };
+    loadModels();
   }, [selectedModel]);
 
   const scrollToBottom = () => {
