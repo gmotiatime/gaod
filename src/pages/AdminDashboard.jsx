@@ -12,7 +12,7 @@ const AdminDashboard = () => {
   const [openAiKey, setOpenAiKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
   const [googleAiKey, setGoogleAiKey] = useState('');
-  const [googleImageModel, setGoogleImageModel] = useState('');
+  // REMOVED googleImageModel since we are removing specific Image Tool
 
   // Global Settings
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -41,7 +41,6 @@ const AdminDashboard = () => {
     setOpenAiKey(localStorage.getItem('gaod_openai_key') || '');
     setAnthropicKey(localStorage.getItem('gaod_anthropic_key') || '');
     setGoogleAiKey(localStorage.getItem('gaod_google_key') || '');
-    setGoogleImageModel(localStorage.getItem('gaod_google_image_model') || 'gemini-3-pro-image-preview');
     setSystemPrompt(localStorage.getItem('gaod_system_prompt') || '');
 
     const savedModels = JSON.parse(localStorage.getItem('gaod_custom_models') || '[]');
@@ -70,7 +69,7 @@ const AdminDashboard = () => {
     localStorage.setItem('gaod_openai_key', openAiKey);
     localStorage.setItem('gaod_anthropic_key', anthropicKey);
     localStorage.setItem('gaod_google_key', googleAiKey);
-    localStorage.setItem('gaod_google_image_model', googleImageModel);
+    // localStorage.removeItem('gaod_google_image_model'); // Optional cleanup
 
     setSavedMessage('Configuration saved.');
     setTimeout(() => setSavedMessage(''), 3000);
@@ -228,20 +227,6 @@ const AdminDashboard = () => {
                   placeholder="AIza..."
                   className={inputClass}
                 />
-              </div>
-
-              <div className="pt-4 border-t border-gray-100 mt-2">
-                 <label className="block text-sm font-medium text-gray-700 mb-2 uppercase tracking-wide font-mono">Google Image Model ID (Nano Banano Pro)</label>
-                 <input
-                  type="text"
-                  value={googleImageModel}
-                  onChange={(e) => setGoogleImageModel(e.target.value)}
-                  placeholder="gemini-3-pro-image-preview"
-                  className={inputClass}
-                />
-                <p className="text-xs text-gray-400 mt-2">
-                   Use a specific model ID (e.g., gemini-3-pro-image-preview) for tool-based image generation.
-                </p>
               </div>
             </div>
 

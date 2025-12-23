@@ -92,59 +92,11 @@ const DashboardPage = () => {
      }
   };
 
-  // HELPER: Generate Image via Google AI (Nano Banano Pro)
-  const generateImageWithGoogle = async (prompt) => {
-      const googleKey = localStorage.getItem('gaod_google_key');
-      const modelId = localStorage.getItem('gaod_google_image_model') || 'gemini-3-pro-image-preview';
-
-      if (!googleKey) throw new Error("No Google AI API Key configured for Image Tool.");
-
-      // Endpoint: Try standard Imagen/Gemini Predict
-      // Note: "gemini-3-pro-image-preview" might need `generateContent` or `predict`.
-      // We will try standard `predict` payload for Imagen style, or `generateContent` if it is a multimodal gemini.
-      // Based on snippet, it's a "Gemini" model ID. So `generateContent` is likely correct but for IMAGES it usually returns inline data or needs specific payload.
-      // Standard Imagen 3 API: `POST .../models/imagen-3.0-generate-001:predict`
-      // If user sets ID to `gemini-3-pro-image-preview`, we assume it behaves like Imagen or Gemini with image output.
-      // Let's try the `predict` endpoint structure first as it's common for image generation models in Vertex/AI Studio.
-
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:predict?key=${googleKey}`;
-
-      // Payload for Imagen
-      const payload = {
-          instances: [{ prompt: prompt }],
-          parameters: { sampleCount: 1 }
-      };
-
-      const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-          // Fallback: If 404/400, maybe it's a Gemini model needing `generateContent`?
-          // But `generateContent` usually returns text/multimodal, unless we ask for media.
-          // Let's assume standard error first.
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error?.message || `Google API Error ${res.status}`);
-      }
-
-      const data = await res.json();
-      // Expect: { predictions: [ { bytesBase64Encoded: "..." } ] }
-      const base64 = data.predictions?.[0]?.bytesBase64Encoded || data.predictions?.[0]; // sometimes just string
-
-      if (typeof base64 === 'string') {
-          return `data:image/png;base64,${base64}`;
-      } else if (data.predictions?.[0]?.mimeType && data.predictions?.[0]?.bytesBase64Encoded) {
-          return `data:${data.predictions[0].mimeType};base64,${data.predictions[0].bytesBase64Encoded}`;
-      }
-
-      throw new Error("Unexpected response format from Google Image API");
-  };
-
+  // MEMORY HELPER
+  const getUserMemoryKey = (uid) => `gaod_user_memory_${uid}`;
 
   const handleSendMessage = async (content, model, attachments = []) => {
-    if (!activeChatId) return;
+    if (!activeChatId || !user) return;
 
     let finalContent = content;
     if (attachments.length > 0) {
@@ -166,15 +118,28 @@ const DashboardPage = () => {
         const openAiKey = localStorage.getItem('gaod_openai_key');
         const anthropicKey = localStorage.getItem('gaod_anthropic_key');
         const googleKey = localStorage.getItem('gaod_google_key');
+
+        // System Prompt Components
         const systemPrompt = localStorage.getItem('gaod_system_prompt') || '';
 
-        // INJECT TOOL INSTRUCTIONS
+        // Load User Memory
+        const userMemory = localStorage.getItem(getUserMemoryKey(user.id)) || "No previous memory.";
+
+        // INJECT MEMORY & TOOL INSTRUCTIONS
         const toolInstructions = `
-You have access to an image generation tool called "Nano Banano Pro" (Google AI).
-If the user asks to generate, create, or draw an image, you MUST output a special tag.
-Tag Format: [GENERATE_IMAGE: <detailed prompt>]
-Do not describe the image in text if you use the tag. Just output the tag.
-Example: [GENERATE_IMAGE: A futuristic city with neon lights, realistic style]
+You have access to a long-term memory about this user and a calculator tool.
+
+[LONG-TERM MEMORY START]
+${userMemory}
+[LONG-TERM MEMORY END]
+
+TOOLS:
+1. UPDATE_MEMORY: To save important facts about the user (name, preferences, details) for future chats.
+   Syntax: [UPDATE_MEMORY: <fact>]
+2. CALCULATE: To evaluate mathematical expressions.
+   Syntax: [CALCULATE: <expression>]
+
+If you learn something new about the user, ALWAYS use the [UPDATE_MEMORY] tool to save it.
 `;
 
         const fullSystemPrompt = (systemPrompt ? systemPrompt + "\n" : "") + toolInstructions;
@@ -214,7 +179,6 @@ Example: [GENERATE_IMAGE: A futuristic city with neon lights, realistic style]
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         contents: [{ parts: [{ text: fullSystemPrompt + "\n\nUser: " + finalContent }] }]
-                        // Note: Gemini API system instruction format varies, embedding in prompt for broad compatibility here
                     })
                 });
                 if (!res.ok) throw new Error(`Google Error: ${res.status}`);
@@ -252,41 +216,76 @@ Example: [GENERATE_IMAGE: A futuristic city with neon lights, realistic style]
         }
 
         // --- TOOL EXECUTION LOGIC ---
-        // Check for [GENERATE_IMAGE: ...]
-        const imageTagRegex = /\[GENERATE_IMAGE:\s*(.*?)\]/;
-        const match = aiResponseText.match(imageTagRegex);
 
-        if (match) {
-            const prompt = match[1];
-            // Call Google Image API
+        // 1. UPDATE_MEMORY
+        const memRegex = /\[UPDATE_MEMORY:\s*(.*?)\]/g;
+        let memMatch;
+        let memoryUpdated = false;
+
+        // We use loop to catch multiple updates
+        while ((memMatch = memRegex.exec(aiResponseText)) !== null) {
+             const fact = memMatch[1];
+             const currentMem = localStorage.getItem(getUserMemoryKey(user.id)) || "";
+             const newMem = currentMem + (currentMem ? "\n" : "") + "- " + fact;
+             localStorage.setItem(getUserMemoryKey(user.id), newMem);
+             memoryUpdated = true;
+        }
+
+        if (memoryUpdated) {
+            // Remove the tags from response to keep it clean, or keep them?
+            // Usually we hide tool outputs. Let's remove them for cleaner UI.
+            aiResponseText = aiResponseText.replace(memRegex, '').trim();
+            // Append a small indicator
+            // aiResponseText += "\n\n(Memory Updated)";
+        }
+
+        // 2. CALCULATE
+        const calcRegex = /\[CALCULATE:\s*(.*?)\]/g;
+        let calcMatch;
+        let calcReplacements = [];
+
+        while ((calcMatch = calcRegex.exec(aiResponseText)) !== null) {
+            const expr = calcMatch[1];
             try {
-                // Replace tag with loading or placeholder first?
-                // We'll wait for generation then replace.
-                const imageUrl = await generateImageWithGoogle(prompt);
-                // Replace the tag with Markdown Image
-                aiResponseText = aiResponseText.replace(match[0], `![Generated Image](${imageUrl})`);
-            } catch (imgErr) {
-                 // Simulation Fallback if API fails (likely 404 or auth in this demo environment)
-                 console.error("Image Gen Failed", imgErr);
-                 // If we have a key but it failed (e.g. wrong model ID), show error.
-                 // If no key (likely in this sandbox), simulate.
-                 if (!googleKey) {
-                     aiResponseText = aiResponseText.replace(match[0], `![Simulated Image - Nano Banano Pro](https://placehold.co/1024x1024/1A1A1A/FFF?text=${encodeURIComponent(prompt)})`);
-                 } else {
-                     aiResponseText += `\n\n(Image Generation Failed: ${imgErr.message})`;
-                 }
+                // Dangerous eval, but for this demo/proto we can restrict regex or use Function
+                // Restrict input to digits and operators
+                if (/^[0-9+\-*/().\s]+$/.test(expr)) {
+                    // eslint-disable-next-line no-new-func
+                    const result = new Function(`return ${expr}`)();
+                    calcReplacements.push({ match: calcMatch[0], result: result });
+                } else {
+                    calcReplacements.push({ match: calcMatch[0], result: "(Invalid Expression)" });
+                }
+            } catch (e) {
+                calcReplacements.push({ match: calcMatch[0], result: "(Calc Error)" });
             }
         }
+
+        // Apply Calc Replacements
+        calcReplacements.forEach(rep => {
+            aiResponseText = aiResponseText.replace(rep.match, `**${rep.result}**`);
+        });
+
 
         // Fallback Simulation for main chat
         if (!usedRealApi && !aiResponseText.startsWith('[Error')) {
              await new Promise(resolve => setTimeout(resolve, 800));
 
-             // Check if user asked for image in simulation
-             if (content.toLowerCase().includes('image') || content.toLowerCase().includes('draw')) {
-                 aiResponseText = `I will create that for you.\n\n![Simulated Image - Nano Banano Pro](https://placehold.co/1024x1024/1A1A1A/FFF?text=Simulated+Google+Image)`;
+             // Simulation Logic
+             if (content.toLowerCase().includes('my name is')) {
+                 const name = content.split('is')[1].trim();
+                 aiResponseText = `Nice to meet you, ${name}. I will remember that.\n[UPDATE_MEMORY: User's name is ${name}]`;
+                 // Run local tool logic manually since we set the string
+                 const currentMem = localStorage.getItem(getUserMemoryKey(user.id)) || "";
+                 localStorage.setItem(getUserMemoryKey(user.id), currentMem + "\n- User's name is " + name);
+                 aiResponseText = aiResponseText.replace(/\[UPDATE_MEMORY:.*?\]/, '').trim();
+             } else if (content.toLowerCase().includes('calculate')) {
+                 aiResponseText = "Sure. [CALCULATE: 25 * 4]";
+                 aiResponseText = aiResponseText.replace('[CALCULATE: 25 * 4]', '**100**');
+             } else if (content.toLowerCase().includes('who am i') || content.toLowerCase().includes('what is my name')) {
+                 aiResponseText = `Based on my memory: \n${userMemory}`;
              } else {
-                 aiResponseText = `[Simulated ${model.name} Response]\n\nI received: "${content}".\n\n(Nano Banano Pro tool is active)`;
+                 aiResponseText = `[Simulated ${model.name} Response]\nI received: "${content}".\nMy memory of you: ${userMemory.length > 20 ? 'Has Data' : 'Empty'}`;
              }
         }
 
