@@ -17,6 +17,10 @@ const AdminDashboard = () => {
   const [customModels, setCustomModels] = useState([]);
   const [newModel, setNewModel] = useState({ name: '', id: '', provider: 'openai' });
 
+  // New User State
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'user' });
+  const [userError, setUserError] = useState('');
+
   const [savedMessage, setSavedMessage] = useState('');
 
   const navigate = useNavigate();
@@ -78,6 +82,27 @@ const AdminDashboard = () => {
     const updatedModels = customModels.filter(m => m.uuid !== uuid);
     setCustomModels(updatedModels);
     localStorage.setItem('gaod_custom_models', JSON.stringify(updatedModels));
+  };
+
+  const handleAddUser = async (e) => {
+    e.preventDefault();
+    setUserError('');
+    if (!newUser.email || !newUser.password || !newUser.name) return;
+
+    try {
+      const result = await auth.createUser(newUser);
+      if (result.success) {
+        setNewUser({ name: '', email: '', password: '', role: 'user' });
+        // Refresh list
+        const data = await auth.getAllUsers();
+        setUsers(data);
+      } else {
+        setUserError(result.error);
+      }
+    } catch (err) {
+      setUserError('Failed to create user');
+      console.error(err);
+    }
   };
 
   if (loading) {
@@ -227,7 +252,7 @@ const AdminDashboard = () => {
                     </select>
                   </div>
                   <div className="md:col-span-1">
-                    <button type="submit" className="w-full bg-white border border-gray-200 text-[#1A1A1A] font-medium px-4 py-3.5 rounded-lg hover:bg-gray-50 hover:border-black transition-colors shadow-sm flex items-center justify-center gap-2">
+                    <button type="submit" className="w-full bg-white border border-gray-200 text-[#1A1A1A] font-medium px-4 py-3.5 rounded-full hover:bg-gray-50 hover:border-black transition-colors shadow-sm flex items-center justify-center gap-2">
                        <Plus className="w-4 h-4" /> Add
                     </button>
                   </div>
@@ -286,10 +311,71 @@ const AdminDashboard = () => {
             <h2 className="font-serif text-2xl">User Registry</h2>
           </div>
 
+          <div className="mb-8">
+            <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
+               <h3 className="text-sm font-mono uppercase text-gray-500 mb-4 tracking-wider">Add New User</h3>
+               <form onSubmit={handleAddUser} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                  <div className="md:col-span-1">
+                    <label className="block text-xs text-gray-400 mb-1">Full Name</label>
+                    <input
+                      type="text"
+                      placeholder="John Doe"
+                      value={newUser.name}
+                      onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+                      className={inputClass}
+                      required
+                    />
+                  </div>
+                  <div className="md:col-span-1">
+                    <label className="block text-xs text-gray-400 mb-1">Email Address</label>
+                    <input
+                      type="email"
+                      placeholder="john@example.com"
+                      value={newUser.email}
+                      onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                      className={inputClass}
+                      required
+                    />
+                  </div>
+                  <div className="md:col-span-1">
+                    <label className="block text-xs text-gray-400 mb-1">Password</label>
+                    <input
+                      type="password"
+                      placeholder="••••••••"
+                      value={newUser.password}
+                      onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                      className={inputClass}
+                      required
+                    />
+                  </div>
+                  <div className="md:col-span-1">
+                    <label className="block text-xs text-gray-400 mb-1">Role</label>
+                    <select
+                       value={newUser.role}
+                       onChange={(e) => setNewUser({...newUser, role: e.target.value})}
+                       className={inputClass}
+                    >
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-1">
+                    <button type="submit" className="w-full bg-white border border-gray-200 text-[#1A1A1A] font-medium px-4 py-3.5 rounded-full hover:bg-gray-50 hover:border-black transition-colors shadow-sm flex items-center justify-center gap-2">
+                       <Plus className="w-4 h-4" /> Add User
+                    </button>
+                  </div>
+               </form>
+               {userError && (
+                 <p className="text-red-500 text-xs mt-3">{userError}</p>
+               )}
+            </div>
+          </div>
+
           <div className="overflow-x-auto rounded-xl border border-gray-100">
             <table className="w-full text-left text-sm">
               <thead className="bg-gray-50 text-gray-500 font-mono text-xs uppercase">
                 <tr>
+                  <th className="px-6 py-4 font-medium">Name</th>
                   <th className="px-6 py-4 font-medium">Email</th>
                   <th className="px-6 py-4 font-medium">Role</th>
                   <th className="px-6 py-4 font-medium">Joined</th>
@@ -299,7 +385,8 @@ const AdminDashboard = () => {
               <tbody className="divide-y divide-gray-100">
                 {users.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-[#1A1A1A]">{user.email}</td>
+                    <td className="px-6 py-4 font-medium text-[#1A1A1A]">{user.name || 'N/A'}</td>
+                    <td className="px-6 py-4 text-gray-600">{user.email}</td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         user.role === 'admin'
