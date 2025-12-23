@@ -7,8 +7,48 @@ import { cn } from '../../lib/utils';
 import MoleculeIcon from '../MoleculeIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// --- Typewriter Component ---
+const Typewriter = ({ text, onComplete }) => {
+  const [displayedText, setDisplayedText] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    // Reset if text changes entirely (though usually we append in a chat, but here we replace the block)
+    if (currentIndex >= text.length) {
+        if (onComplete) onComplete();
+        return;
+    }
+
+    const timeout = setTimeout(() => {
+      setDisplayedText(prev => prev + text[currentIndex]);
+      setCurrentIndex(prev => prev + 1);
+    }, 15); // 15ms per char ~ 4000 cpm, fast but visible
+
+    return () => clearTimeout(timeout);
+  }, [currentIndex, text, onComplete]);
+
+  return (
+    <div className="prose prose-sm max-w-none prose-headings:font-serif prose-p:leading-relaxed prose-pre:bg-[#1e1e1e] prose-pre:text-gray-100 prose-pre:border prose-pre:border-gray-700 prose-code:text-red-500">
+       <ReactMarkdown
+         remarkPlugins={[remarkGfm]}
+         components={{
+            img: ({node, ...props}) => <img {...props} className="rounded-xl border border-gray-200 shadow-sm my-2 max-w-full h-auto" />
+         }}
+       >
+         {displayedText}
+       </ReactMarkdown>
+    </div>
+  );
+};
+
+Typewriter.propTypes = {
+    text: PropTypes.string.isRequired,
+    onComplete: PropTypes.func
+};
+
+// --- Thinking Block ---
 const ThinkingBlock = ({ content }) => {
-  const [isOpen, setIsOpen] = useState(true); // Open by default when it appears
+  const [isOpen, setIsOpen] = useState(true);
 
   return (
     <div className="mb-4 border-l-2 border-gray-200 pl-4 py-1">
@@ -51,6 +91,9 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
+  // Track typed message IDs to avoid re-typing old messages
+  const [typedMessageIds, setTypedMessageIds] = useState(new Set());
+
   // Load custom models from local storage
   const [availableModels, setAvailableModels] = useState([]);
 
@@ -58,7 +101,6 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
     const customModels = JSON.parse(localStorage.getItem('gaod_custom_models') || '[]');
     setAvailableModels(customModels);
 
-    // Validate selection against available models
     if (customModels.length > 0 && !customModels.find(m => m.name === selectedModel)) {
         setSelectedModel(customModels[0].name);
     } else if (customModels.length === 0) {
@@ -77,28 +119,21 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
     if (!input.trim() && attachments.length === 0) return;
 
     const model = availableModels.find(m => m.name === selectedModel) || availableModels[0];
-
-    // Pass attachments with the message
     onSendMessage(input, model, attachments);
-
     setInput('');
     setAttachments([]);
   };
 
   const handleFileSelect = (e) => {
     if (e.target.files && e.target.files.length > 0) {
-       // Convert FileList to Array
        const newFiles = Array.from(e.target.files).map(file => ({
           name: file.name,
           type: file.type,
           size: file.size,
-          // For now, we store the file object. In a real app we'd upload it or read dataURL.
-          // We'll read it as dataURL later if needed.
           rawFile: file
        }));
        setAttachments(prev => [...prev, ...newFiles]);
     }
-    // Reset input so same file can be selected again
     e.target.value = null;
   };
 
@@ -106,10 +141,7 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Helper to separate Thinking block from content
   const parseMessageContent = (content) => {
-     // Regex to find <thinking>...</thinking>
-     // Note: dotAll logic is needed for multiline. In JS regex, use `[\s\S]*?` or `s` flag if supported.
      const thinkingRegex = /<thinking>([\s\S]*?)<\/thinking>/;
      const match = content.match(thinkingRegex);
 
@@ -119,6 +151,10 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
          return { thoughts, cleanContent };
      }
      return { thoughts: null, cleanContent: content };
+  };
+
+  const handleTypeComplete = (id) => {
+      setTypedMessageIds(prev => new Set(prev).add(id));
   };
 
   return (
@@ -175,8 +211,10 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
             </div>
         )}
 
-        {messages.map((msg) => {
+        {messages.map((msg, index) => {
             const { thoughts, cleanContent } = parseMessageContent(msg.content);
+            const isLastMessage = index === messages.length - 1;
+            const shouldType = isLastMessage && msg.role !== 'user' && !typedMessageIds.has(msg.id);
 
             return (
               <motion.div
@@ -201,7 +239,6 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
                         : 'bg-white border border-gray-200 text-[#1A1A1A] rounded-tl-sm'
                     )}
                   >
-                    {/* File Attachment Display in Bubble */}
                     {msg.attachments && msg.attachments.length > 0 && (
                         <div className="mb-3 flex flex-wrap gap-2">
                             {msg.attachments.map((file, i) => (
@@ -216,26 +253,31 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
                         </div>
                     )}
 
-                    {/* Thoughts (Only for assistant) */}
                     {msg.role !== 'user' && thoughts && (
                         <ThinkingBlock content={thoughts} />
                     )}
 
-                    {/* Markdown Content */}
+                    {/* Markdown Content with Typewriter logic */}
                     {msg.role === 'user' ? (
                        <div>{cleanContent}</div>
                     ) : (
-                       <div className="prose prose-sm max-w-none prose-headings:font-serif prose-p:leading-relaxed prose-pre:bg-gray-50 prose-pre:border prose-pre:border-gray-100 prose-pre:text-gray-800">
-                         <ReactMarkdown
-                           remarkPlugins={[remarkGfm]}
-                           components={{
-                              // Override image to be responsive
-                              img: ({node, ...props}) => <img {...props} className="rounded-xl border border-gray-200 shadow-sm my-2 max-w-full h-auto" />
-                           }}
-                         >
-                           {cleanContent}
-                         </ReactMarkdown>
-                       </div>
+                       shouldType ? (
+                           <Typewriter
+                               text={cleanContent}
+                               onComplete={() => handleTypeComplete(msg.id)}
+                           />
+                       ) : (
+                           <div className="prose prose-sm max-w-none prose-headings:font-serif prose-p:leading-relaxed prose-pre:bg-[#1e1e1e] prose-pre:text-gray-100 prose-pre:border prose-pre:border-gray-700 prose-code:text-red-500">
+                             <ReactMarkdown
+                               remarkPlugins={[remarkGfm]}
+                               components={{
+                                  img: ({node, ...props}) => <img {...props} className="rounded-xl border border-gray-200 shadow-sm my-2 max-w-full h-auto" />
+                               }}
+                             >
+                               {cleanContent}
+                             </ReactMarkdown>
+                           </div>
+                       )
                     )}
                   </div>
                 </div>
@@ -262,11 +304,9 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
         <div ref={messagesEndRef} className="h-4" />
       </div>
 
-      {/* Input Area */}
       <div className="p-4 md:p-6 max-w-4xl mx-auto w-full sticky bottom-0 z-30 shrink-0">
         <div className="bg-[#F8F8F6] absolute inset-0 -top-8 bg-gradient-to-t from-[#F8F8F6] to-transparent pointer-events-none" />
 
-        {/* Attachment Preview */}
         {attachments.length > 0 && (
             <div className="mb-2 flex gap-2 overflow-x-auto pb-2 relative z-40 px-1">
                 {attachments.map((file, i) => (

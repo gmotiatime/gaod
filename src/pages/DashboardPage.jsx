@@ -98,11 +98,7 @@ const DashboardPage = () => {
   // HELPER: Generate Image via Google AI (Restored)
   const generateImageWithGoogle = async (prompt) => {
       const googleKey = localStorage.getItem('gaod_google_key');
-      // Using generic gemini-pro-vision or custom ID from old logic if still available,
-      // or default to 'gemini-1.5-flash' which handles multimodal.
-      // Actually standard Imagen uses a different endpoint.
-      // We will re-use the logic we had before removal.
-      const modelId = 'gemini-3-pro-image-preview'; // Default or from config if we add it back
+      const modelId = localStorage.getItem('gaod_google_image_model') || 'gemini-3-pro-image-preview';
 
       if (!googleKey) throw new Error("No Google AI API Key configured for Image Tool.");
 
@@ -134,6 +130,34 @@ const DashboardPage = () => {
       }
 
       throw new Error("Unexpected response format from Google Image API");
+  };
+
+  // HELPER: Web Search (Google Programmable Search)
+  const performWebSearch = async (query) => {
+      const apiKey = localStorage.getItem('gaod_search_key');
+      const cx = localStorage.getItem('gaod_search_cx');
+
+      if (!apiKey || !cx) {
+          throw new Error("Google Search API Key or Engine ID (CX) not configured in Admin.");
+      }
+
+      const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(query)}`;
+      const res = await fetch(url);
+
+      if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error?.message || `Search API Error ${res.status}`);
+      }
+
+      const data = await res.json();
+      if (!data.items || data.items.length === 0) {
+          return "No results found.";
+      }
+
+      // Format top 3 results
+      return data.items.slice(0, 3).map((item, i) => (
+          `**${i+1}. [${item.title}](${item.link})**\n${item.snippet}`
+      )).join('\n\n');
   };
 
   const handleSendMessage = async (content, model, attachments = []) => {
@@ -287,21 +311,27 @@ These tags will be shown to the user to demonstrate your reasoning.
         // 2. WEB_SEARCH
         const searchRegex = /\[WEB_SEARCH:\s*(.*?)\]/g;
         let searchMatch;
-        let searchReplacements = [];
         while ((searchMatch = searchRegex.exec(aiResponseText)) !== null) {
             const query = searchMatch[1];
-            // Mock Search
-            const mockResult = `**Found 3 results for "${query}":**\n- Result 1 for ${query}\n- Result 2 for ${query}\n- Wikipedia entry for ${query}`;
-            searchReplacements.push({ match: searchMatch[0], result: mockResult });
+            try {
+                const searchResults = await performWebSearch(query);
+                aiResponseText = aiResponseText.replace(searchMatch[0], `**Search Results for "${query}":**\n\n${searchResults}`);
+            } catch (e) {
+                // Fallback / Error
+                const searchKey = localStorage.getItem('gaod_search_key');
+                if (!searchKey) {
+                    // Sim
+                    const mockResult = `**Found simulated results for "${query}":**\n- Wikipedia: ${query}\n- News: Latest on ${query}`;
+                    aiResponseText = aiResponseText.replace(searchMatch[0], mockResult + "\n\n(Note: Add Google Search Key in Admin for real results)");
+                } else {
+                    aiResponseText = aiResponseText.replace(searchMatch[0], `(Search Failed: ${e.message})`);
+                }
+            }
         }
-        searchReplacements.forEach(rep => { aiResponseText = aiResponseText.replace(rep.match, rep.result); });
 
         // 3. GENERATE_IMAGE
         const imgRegex = /\[GENERATE_IMAGE:\s*(.*?)\]/g;
         let imgMatch;
-        // Logic similar to previous Tool implementation
-        // Since we are async, we can only handle one by one nicely, or use Promise.all.
-        // For simplicity, we process the first one found or iterate linearly.
         while ((imgMatch = imgRegex.exec(aiResponseText)) !== null) {
              const prompt = imgMatch[1];
              try {
@@ -349,8 +379,11 @@ I received: "${content}".
 `;
              if (content.toLowerCase().includes('search')) {
                  aiResponseText += `\n[WEB_SEARCH: ${content}]`;
-                 // Manually run search replace for simulation
-                 aiResponseText = aiResponseText.replace(/\[WEB_SEARCH:\s*(.*?)\]/, '**Simulated Search Result**');
+                 // Manually run search replace for simulation if we hit this block
+                 // But wait, the loop above already ran. If we add tag now, it won't be processed.
+                 // So we must manually process simulation here or re-run regex.
+                 // Ideally simulation emits tags, then we re-run loop. But simplest is just replace here.
+                 aiResponseText = aiResponseText.replace(/\[WEB_SEARCH:\s*(.*?)\]/, '**Simulated Search Result** (No API Key)');
              }
         }
 

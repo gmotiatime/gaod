@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../lib/auth';
-import { LogOut, Users, Shield, Key, Save, Plus, Trash2, Cpu, Brain } from 'lucide-react';
+import { LogOut, Users, Shield, Key, Save, Plus, Trash2, Cpu, Brain, Search } from 'lucide-react';
 
 const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
@@ -12,8 +12,11 @@ const AdminDashboard = () => {
   const [openAiKey, setOpenAiKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
   const [googleAiKey, setGoogleAiKey] = useState('');
-  // We are re-adding this field because we restored Image Generation tool
   const [googleImageModel, setGoogleImageModel] = useState('');
+
+  // Search Keys
+  const [googleSearchKey, setGoogleSearchKey] = useState('');
+  const [googleCx, setGoogleCx] = useState('');
 
   // Global Settings
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -43,6 +46,10 @@ const AdminDashboard = () => {
     setAnthropicKey(localStorage.getItem('gaod_anthropic_key') || '');
     setGoogleAiKey(localStorage.getItem('gaod_google_key') || '');
     setGoogleImageModel(localStorage.getItem('gaod_google_image_model') || 'gemini-3-pro-image-preview');
+
+    setGoogleSearchKey(localStorage.getItem('gaod_search_key') || '');
+    setGoogleCx(localStorage.getItem('gaod_search_cx') || '');
+
     setSystemPrompt(localStorage.getItem('gaod_system_prompt') || '');
 
     const savedModels = JSON.parse(localStorage.getItem('gaod_custom_models') || '[]');
@@ -72,6 +79,9 @@ const AdminDashboard = () => {
     localStorage.setItem('gaod_anthropic_key', anthropicKey);
     localStorage.setItem('gaod_google_key', googleAiKey);
     localStorage.setItem('gaod_google_image_model', googleImageModel);
+
+    localStorage.setItem('gaod_search_key', googleSearchKey);
+    localStorage.setItem('gaod_search_cx', googleCx);
 
     setSavedMessage('Configuration saved.');
     setTimeout(() => setSavedMessage(''), 3000);
@@ -197,15 +207,46 @@ const AdminDashboard = () => {
 
           <form onSubmit={handleSaveKeys} className="space-y-6 max-w-2xl">
             <div className="grid grid-cols-1 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2 uppercase tracking-wide font-mono">OpenAI API Key</label>
-                <input
-                  type="password"
-                  value={openAiKey}
-                  onChange={(e) => setOpenAiKey(e.target.value)}
-                  placeholder="sk-..."
-                  className={inputClass}
-                />
+
+              {/* Google Search Section */}
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                 <div className="flex items-center gap-2 mb-4 text-[#1A1A1A] font-medium text-sm">
+                    <Search className="w-4 h-4" />
+                    <span>Real-Time Web Search (Google Programmable Search)</span>
+                 </div>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Search API Key</label>
+                        <input
+                          type="password"
+                          value={googleSearchKey}
+                          onChange={(e) => setGoogleSearchKey(e.target.value)}
+                          placeholder="AIza..."
+                          className={inputClass}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Search Engine ID (CX)</label>
+                        <input
+                          type="text"
+                          value={googleCx}
+                          onChange={(e) => setGoogleCx(e.target.value)}
+                          placeholder="012345..."
+                          className={inputClass}
+                        />
+                    </div>
+                 </div>
+              </div>
+
+              <div className="border-t border-gray-100 pt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2 uppercase tracking-wide font-mono">OpenAI API Key</label>
+                  <input
+                    type="password"
+                    value={openAiKey}
+                    onChange={(e) => setOpenAiKey(e.target.value)}
+                    placeholder="sk-..."
+                    className={inputClass}
+                  />
               </div>
 
               <div>
@@ -230,7 +271,7 @@ const AdminDashboard = () => {
                 />
               </div>
 
-              <div className="pt-4 border-t border-gray-100 mt-2">
+              <div>
                  <label className="block text-sm font-medium text-gray-700 mb-2 uppercase tracking-wide font-mono">Google Image Model ID (Nano Banano Pro)</label>
                  <input
                   type="text"
@@ -239,19 +280,16 @@ const AdminDashboard = () => {
                   placeholder="gemini-3-pro-image-preview"
                   className={inputClass}
                 />
-                <p className="text-xs text-gray-400 mt-2">
-                   Model ID used for the [GENERATE_IMAGE] tool.
-                </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4 pt-2">
+            <div className="flex items-center gap-4 pt-4">
               <button
                 type="submit"
                 className={primaryButtonClass}
               >
                 <Save className="w-4 h-4" />
-                Save Keys
+                Save All Keys
               </button>
               {savedMessage && (
                 <span className="text-green-600 text-sm font-medium animate-pulse">
@@ -344,7 +382,7 @@ const AdminDashboard = () => {
                       <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => handleDeleteModel(model.uuid)}
-                          className="text-gray-300 hover:text-red-500 transition-colors p-1"
+                          className="text-red-300 hover:text-red-500 bg-red-50 hover:bg-red-100 rounded-full p-2 transition-all"
                           title="Remove model"
                         >
                           <Trash2 className="w-4 h-4" />
