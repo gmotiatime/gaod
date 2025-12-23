@@ -5,8 +5,6 @@ import { supabaseAdapter } from './supabaseAdapter.js';
 // Hardcoded to SUPABASE for this plan
 const DB_MODE = 'SUPABASE';
 
-console.log(`[DB] Initializing database in ${DB_MODE} mode.`);
-
 export const db = DB_MODE === 'SUPABASE' ? supabaseAdapter : localAdapter;
 
 // Helper to initialize (if needed)
@@ -27,13 +25,11 @@ export const initDB = async () => {
         }
     } else {
         // Supabase init
-        console.log("[DB] Checking Supabase Admin User...");
         try {
             const adminEmail = 'gmotiaaa@gmail.com';
             const existingAdmin = await db.getUserByEmail(adminEmail);
 
             if (!existingAdmin) {
-                console.log("[DB] Admin user not found. Creating...");
                 const newAdmin = {
                     id: 'admin-1',
                     email: adminEmail,
@@ -44,13 +40,9 @@ export const initDB = async () => {
                 };
 
                 const created = await db.createUser(newAdmin);
-                if (created) {
-                    console.log("[DB] Admin user created successfully.");
-                } else {
+                if (!created) {
                     console.error("[DB] Failed to create admin user.");
                 }
-            } else {
-                console.log("[DB] Admin user exists.");
             }
         } catch (err) {
             console.error("[DB] Error initializing admin user:", err);
