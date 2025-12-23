@@ -3,7 +3,21 @@ import { supabaseAdapter } from './supabaseAdapter';
 
 // Configuration: Determine which adapter to use
 // Default to LOCAL for now, unless ENV var specifies 'SUPABASE'
-const DB_MODE = import.meta.env.VITE_DB_MODE || 'LOCAL';
+// OR if we detect Supabase config in localStorage (dynamic switching)
+
+const getDbMode = () => {
+    // If we have credentials stored, prefer Supabase?
+    // Or stick to explicit flag.
+    // User wants switchable.
+    // Let's check a specific 'gaod_db_mode' setting in localStorage first.
+    if (typeof window !== 'undefined') {
+        const mode = localStorage.getItem('gaod_db_mode');
+        if (mode === 'SUPABASE') return 'SUPABASE';
+    }
+    return import.meta.env.VITE_DB_MODE || 'LOCAL';
+}
+
+const DB_MODE = getDbMode();
 
 console.log(`[DB] Initializing database in ${DB_MODE} mode.`);
 

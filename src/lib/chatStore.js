@@ -1,74 +1,65 @@
-const CHAT_STORAGE_KEY = 'brand_ai_chats';
+import { db } from './db';
+import { auth } from './auth';
 
 export const chatStore = {
-  // Get all chats (metadata)
-  getChats: () => {
-    const chats = localStorage.getItem(CHAT_STORAGE_KEY);
-    return chats ? JSON.parse(chats) : [];
+  getChats: async () => {
+    const user = auth.getCurrentUser();
+    if (!user) return [];
+    return await db.getChats(user.id);
   },
 
-  // Create a new chat
-  createChat: (firstMessage = null) => {
-    const chats = chatStore.getChats();
+  getChat: async (id) => {
+    const user = auth.getCurrentUser();
+    if (!user) return null;
+
+    // We can optimize by fetching single if DB supports, but for now reuse getChats filter
+    // or assume we want to fetch fresh.
+    const chats = await db.getChats(user.id);
+    return chats.find(c => c.id === id) || null;
+  },
+
+  createChat: async () => {
+    const user = auth.getCurrentUser();
+    if (!user) throw new Error("User not logged in");
+
     const newChat = {
-      id: Date.now().toString(),
-      title: firstMessage ? firstMessage.substring(0, 30) + '...' : 'New Chat',
+      id: crypto.randomUUID(),
+      userId: user.id,
+      title: 'New Chat',
+      messages: [], // Array of { role, content, attachments }
       createdAt: new Date().toISOString(),
-      messages: firstMessage
-        ? [{ id: Date.now(), role: 'user', content: firstMessage, timestamp: new Date().toISOString() }]
-        : []
+      updatedAt: new Date().toISOString()
     };
 
-    // Prepend to list
-    chats.unshift(newChat);
-    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chats));
-    return newChat;
+    return await db.createChat(newChat);
   },
 
-  // Get single chat details
-  getChat: (chatId) => {
-    const chats = chatStore.getChats();
-    return chats.find(c => c.id === chatId) || null;
-  },
-
-  // Add message to chat
-  addMessage: (chatId, role, content) => {
-    const chats = chatStore.getChats();
-    const chatIndex = chats.findIndex(c => c.id === chatId);
-
-    if (chatIndex === -1) return null;
+  addMessage: async (chatId, role, content, attachments = []) => {
+    const chat = await chatStore.getChat(chatId);
+    if (!chat) throw new Error("Chat not found");
 
     const newMessage = {
-      id: Date.now(),
       role,
       content,
+      attachments,
       timestamp: new Date().toISOString()
     };
 
-    chats[chatIndex].messages.push(newMessage);
+    const updatedMessages = [...chat.messages, newMessage];
 
-    // Update title if it's the first message and title is generic
-    if (chats[chatIndex].messages.length === 1 && chats[chatIndex].title === 'New Chat') {
-       chats[chatIndex].title = content.substring(0, 30) + '...';
-    }
-
-    // Move to top
-    const updatedChat = chats.splice(chatIndex, 1)[0];
-    chats.unshift(updatedChat);
-
-    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chats));
-    return updatedChat;
+    return await db.updateChat(chatId, { messages: updatedMessages });
   },
 
-  // Delete chat
-  deleteChat: (chatId) => {
-    const chats = chatStore.getChats();
-    const newChats = chats.filter(c => c.id !== chatId);
-    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(newChats));
+  updateTitle: async (chatId, title) => {
+      return await db.updateChat(chatId, { title });
   },
 
-  // Clear all
-  clearAll: () => {
-    localStorage.removeItem(CHAT_STORAGE_KEY);
+  deleteChat: async (chatId) => {
+      return await db.deleteChat(chatId);
+  },
+
+  // Replaces entire chat content (useful for streaming updates/corrections)
+  updateChat: async (chatId, updates) => {
+      return await db.updateChat(chatId, updates);
   }
 };

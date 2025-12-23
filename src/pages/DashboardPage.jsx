@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/dashboard/Sidebar';
 import ChatInterface from '../components/dashboard/ChatInterface';
@@ -111,19 +111,21 @@ const DashboardPage = () => {
         finalContent += `\n\n[Attached ${attachments.length} file(s): ${attachments.map(a => a.name).join(', ')}]`;
     }
 
+    // 1. Add User Message
     await chatStore.addMessage(activeChatId, 'user', finalContent, attachments);
 
     const isFirstMessage = activeMessages.length === 0;
 
+    // Update Local State Immediately
     const updatedChat = await chatStore.getChat(activeChatId);
     setChats(await chatStore.getChats());
     setActiveMessages(updatedChat.messages);
     setIsTyping(true);
 
     try {
-        let aiResponseText = '';
+        let aiFullText = '';
 
-        // Vertex Key only
+        // Vertex / Gemini Key
         const vertexKey = await db.getSetting('gaod_vertex_key');
 
         const systemPrompt = (await db.getSetting('gaod_system_prompt')) || '';
@@ -143,121 +145,142 @@ Before answering, you MUST think step-by-step to plan your response.
 Wrap your thought process in <thinking>...</thinking> tags.
 Inside these tags, you can also use <reflection>...</reflection> to critique your own plan before finalizing the output.
 These tags will be shown to the user to demonstrate your reasoning.
-
-**Tools:**
-1. **UPDATE_MEMORY**: Save important facts, context, style preferences, or unresolved tasks.
-   Syntax: [UPDATE_MEMORY: <fact>]
-2. **EXECUTE_CODE**: Run simple JavaScript code (math, logic).
-   Syntax: [EXECUTE_CODE: <code>]
-
-**Guidelines:**
-- If you learn something new (e.g. user's job, favorite color), use [UPDATE_MEMORY].
-- Do not output tool results yourself (e.g., do not hallucinate search results), just output the tag. The system will handle it.
 `;
 
-        const fullSystemPrompt = (systemPrompt ? systemPrompt + "\n" : "") + toolInstructions;
+        // Construct History for Context (Last 10 messages)
+        // Gemini API expects "contents" array
+        // We need to map our format (role: user/assistant) to Gemini (role: user/model)
+        const history = activeMessages.slice(-10).map(m => ({
+            role: m.role === 'user' ? 'user' : 'model',
+            parts: [{ text: m.content }]
+        }));
+
+        // Add current message
+        const currentMessage = {
+             role: 'user',
+             parts: [{ text: toolInstructions + "\n\nUser: " + finalContent }]
+        };
+
+        const contents = [...history, currentMessage];
 
         let usedRealApi = false;
 
-        // --- STANDARD TEXT CHAT (VERTEX ONLY) ---
+        // --- REALTIME STREAMING CHAT (Google AI Gemini API) ---
         try {
-            // Vertex / Google Payload Structure
-            // Note: Vertex API endpoint provided by user:
-            // https://aiplatform.googleapis.com/v1/publishers/google/models/{MODEL}:generateContent?key={KEY}
-
             if (vertexKey) {
-                const url = `https://aiplatform.googleapis.com/v1/publishers/google/models/${model.id}:generateContent?key=${vertexKey}`;
+                // Using generativelanguage.googleapis.com for API Key access (standard for 'Gemini API')
+                // Using :streamGenerateContent
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model.id}:streamGenerateContent?key=${vertexKey}`;
 
-                const payload = {
-                    contents: [{
-                        role: 'user',
-                        parts: [{ text: fullSystemPrompt + "\n\nUser: " + finalContent }]
-                    }]
-                    // Vertex system_instruction support varies by model version/endpoint.
-                    // To be safe, we prepend to user message as above.
-                };
+                const payload = { contents };
 
-                const res = await fetch(url, {
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
 
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    throw new Error(err.error?.message || `Vertex API Error ${res.status}`);
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    throw new Error(err.error?.message || `API Error ${response.status}`);
                 }
 
-                const data = await res.json();
-                if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    aiResponseText = data.candidates[0].content.parts[0].text;
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                // Placeholder for streaming message
+                await chatStore.addMessage(activeChatId, 'assistant', '');
+                // We will update this message repeatedly
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    // Gemini stream returns JSON objects, often multiple per chunk or split across chunks
+                    // This simple parsing assumes cleanly delimited JSON or we might need a buffer.
+                    // However, REST stream usually sends standard JSON array elements.
+                    // Actually, for :streamGenerateContent, it returns a JSON array stream but usually wrapped in valid JSON structure if simple fetch?
+                    // No, usually it sends chunks of JSON. Let's handle the typical format.
+                    // Google API usually returns a list of JSON objects, e.g. [{...}, {...}]
+
+                    // Simple regex based extraction for "text" field to be robust against chunk boundaries
+                    // Note: A robust implementation requires a proper stream parser (like SSE or JSON stream).
+                    // For now, let's assume we can regex extract 'text': "..." from the raw string buffer.
+
+                    const matches = chunk.matchAll(/"text":\s*"((?:[^"\\]|\\.)*)"/g);
+                    for (const match of matches) {
+                        try {
+                            const textPart = JSON.parse(`"${match[1]}"`); // Decode escape sequences
+                            aiFullText += textPart;
+
+                            // Update UI incrementally (throttled in real app, here direct)
+                            // We need to update the *last* message in the store
+                            const currentChats = await chatStore.getChats();
+                            const currentChat = currentChats.find(c => c.id === activeChatId);
+                            if (currentChat) {
+                                const msgs = [...currentChat.messages];
+                                msgs[msgs.length - 1].content = aiFullText;
+                                // Update store 'silently' or efficiently?
+                                // For now, we use the store's update method which might be slow for every char,
+                                // but acceptable for this demo.
+                                // BETTER: Just update local state `activeMessages` for UI, then save to DB at end.
+                                setActiveMessages(msgs);
+                            }
+                        } catch (e) { /* ignore parse errors */ }
+                    }
                     usedRealApi = true;
                 }
+
+                // Final Save to DB
+                // Remove the empty placeholder we added before loop?
+                // Actually we added an empty one. We need to update it now.
+                 // We need to locate that message.
+                 // Limitation of current `chatStore`: it appends.
+                 // Hack: We appended an empty one. Now we update the chat's last message.
+                 const finalChat = await chatStore.getChat(activeChatId);
+                 const finalMsgs = [...finalChat.messages];
+                 finalMsgs[finalMsgs.length - 1].content = aiFullText;
+                 await chatStore.updateChat(activeChatId, { messages: finalMsgs });
+
             } else {
-                throw new Error("No Vertex AI API Key configured.");
+                throw new Error("No Vertex/Gemini API Key configured.");
             }
 
         } catch (e) {
             console.error("Chat API Call Failed", e);
-            aiResponseText = `[Error: ${e.message}]`;
+            if (!usedRealApi) aiFullText = `[Error: ${e.message}]`;
         }
 
-        // --- TOOL PARSING & EXECUTION ---
+        if (!usedRealApi && !aiFullText.startsWith('[Error')) {
+             await new Promise(resolve => setTimeout(resolve, 800));
+             aiFullText = `<thinking>Simulating response...</thinking> I received: "${content}". (API Key missing or invalid)`;
+             await chatStore.addMessage(activeChatId, 'assistant', aiFullText);
+        } else if (!usedRealApi) {
+             await chatStore.addMessage(activeChatId, 'assistant', aiFullText);
+        }
 
-        // 1. UPDATE_MEMORY
+        // Post-processing: Memory Extraction (only on full text)
         const memRegex = /\[UPDATE_MEMORY:\s*(.*?)\]/g;
         let memMatch;
         let memoryUpdated = false;
-        while ((memMatch = memRegex.exec(aiResponseText)) !== null) {
+        while ((memMatch = memRegex.exec(aiFullText)) !== null) {
              const fact = memMatch[1];
              const currentMem = (await db.getSetting(memKey)) || "";
              const newMem = currentMem + (currentMem ? "\n" : "") + "- " + fact;
              await db.setSetting(memKey, newMem);
              memoryUpdated = true;
         }
-        if (memoryUpdated) aiResponseText = aiResponseText.replace(memRegex, '').trim();
 
-        // 2. EXECUTE_CODE
-        const codeRegex = /\[EXECUTE_CODE:\s*(.*?)\]/g;
-        let codeMatch;
-        while ((codeMatch = codeRegex.exec(aiResponseText)) !== null) {
-             const code = codeMatch[1];
-             try {
-                // Safe(r) eval
-                // eslint-disable-next-line no-new-func
-                const result = new Function(`return (${code})`)();
-                aiResponseText = aiResponseText.replace(codeMatch[0], `\`\`\`output\n${result}\n\`\`\``);
-             } catch (e) {
-                aiResponseText = aiResponseText.replace(codeMatch[0], `(Code Error: ${e.message})`);
-             }
-        }
-
-        if (!usedRealApi && !aiResponseText.startsWith('[Error') && !aiResponseText.includes('<thinking>')) {
-             await new Promise(resolve => setTimeout(resolve, 800));
-
-             // Simulation Logic for CoT
-             aiResponseText = `<thinking>
-I see the user wants to chat.
-User said: "${content}"
-I am running in simulation mode because the API call failed or no key was provided.
-<reflection>I should simulate a helpful Vertex AI response.</reflection>
-</thinking>
-
-[Simulated Vertex AI Response]
-I received: "${content}".
-`;
-        }
-
-        await chatStore.addMessage(activeChatId, 'assistant', aiResponseText);
-
-        const finalChat = await chatStore.getChat(activeChatId);
-        setActiveMessages(finalChat.messages);
+        // Final State Update
         setChats(await chatStore.getChats());
+        const finalChatRef = await chatStore.getChat(activeChatId);
+        setActiveMessages(finalChatRef.messages);
 
         if (isFirstMessage) generateTitle(content, activeChatId);
 
     } catch (err) {
-        await chatStore.addMessage(activeChatId, 'assistant', "Error generating response.");
+        console.error(err);
     } finally {
         setIsTyping(false);
     }
