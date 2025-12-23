@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../lib/auth';
-import { LogOut, Users, Shield, Key, Save, Plus, Trash2, Cpu, Brain, Image as ImageIcon } from 'lucide-react';
+import { LogOut, Users, Shield, Key, Save, Plus, Trash2, Cpu, Brain } from 'lucide-react';
 
 const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
@@ -12,14 +12,14 @@ const AdminDashboard = () => {
   const [openAiKey, setOpenAiKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
   const [googleAiKey, setGoogleAiKey] = useState('');
+  const [googleImageModel, setGoogleImageModel] = useState('');
 
   // Global Settings
   const [systemPrompt, setSystemPrompt] = useState('');
 
   // Custom Models
   const [customModels, setCustomModels] = useState([]);
-  // Added 'type' field: 'text' or 'image'
-  const [newModel, setNewModel] = useState({ name: '', id: '', provider: 'openai', type: 'text' });
+  const [newModel, setNewModel] = useState({ name: '', id: '', provider: 'openai' });
 
   // New User State
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'user' });
@@ -41,6 +41,7 @@ const AdminDashboard = () => {
     setOpenAiKey(localStorage.getItem('gaod_openai_key') || '');
     setAnthropicKey(localStorage.getItem('gaod_anthropic_key') || '');
     setGoogleAiKey(localStorage.getItem('gaod_google_key') || '');
+    setGoogleImageModel(localStorage.getItem('gaod_google_image_model') || 'gemini-3-pro-image-preview');
     setSystemPrompt(localStorage.getItem('gaod_system_prompt') || '');
 
     const savedModels = JSON.parse(localStorage.getItem('gaod_custom_models') || '[]');
@@ -69,6 +70,7 @@ const AdminDashboard = () => {
     localStorage.setItem('gaod_openai_key', openAiKey);
     localStorage.setItem('gaod_anthropic_key', anthropicKey);
     localStorage.setItem('gaod_google_key', googleAiKey);
+    localStorage.setItem('gaod_google_image_model', googleImageModel);
 
     setSavedMessage('Configuration saved.');
     setTimeout(() => setSavedMessage(''), 3000);
@@ -85,10 +87,11 @@ const AdminDashboard = () => {
     e.preventDefault();
     if (!newModel.name || !newModel.id) return;
 
+    // We remove explicit 'type' selection - all models are chat models
     const updatedModels = [...customModels, { ...newModel, uuid: Date.now() }];
     setCustomModels(updatedModels);
     localStorage.setItem('gaod_custom_models', JSON.stringify(updatedModels));
-    setNewModel({ name: '', id: '', provider: 'openai', type: 'text' });
+    setNewModel({ name: '', id: '', provider: 'openai' });
   };
 
   const handleDeleteModel = (uuid) => {
@@ -168,7 +171,7 @@ const AdminDashboard = () => {
              <h2 className="font-serif text-2xl">Global Memory & Instructions</h2>
            </div>
            <p className="text-sm text-gray-500 mb-4">
-             These instructions will be prepended to every chat session (System Prompt). Use this to define the persona or provide context.
+             These instructions will be prepended to every chat session.
            </p>
            <form onSubmit={handleSaveSystem} className="space-y-4">
               <textarea
@@ -226,6 +229,20 @@ const AdminDashboard = () => {
                   className={inputClass}
                 />
               </div>
+
+              <div className="pt-4 border-t border-gray-100 mt-2">
+                 <label className="block text-sm font-medium text-gray-700 mb-2 uppercase tracking-wide font-mono">Google Image Model ID (Nano Banano Pro)</label>
+                 <input
+                  type="text"
+                  value={googleImageModel}
+                  onChange={(e) => setGoogleImageModel(e.target.value)}
+                  placeholder="gemini-3-pro-image-preview"
+                  className={inputClass}
+                />
+                <p className="text-xs text-gray-400 mt-2">
+                   Use a specific model ID (e.g., gemini-3-pro-image-preview) for tool-based image generation.
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center gap-4 pt-2">
@@ -249,18 +266,18 @@ const AdminDashboard = () => {
         <div className={cardClass}>
           <div className={sectionHeaderClass}>
              <Cpu className="w-5 h-5 text-gray-400" />
-             <h2 className="font-serif text-2xl">Custom Models</h2>
+             <h2 className="font-serif text-2xl">Chat Models</h2>
           </div>
 
           <div className="mb-8">
             <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
-               <h3 className="text-sm font-mono uppercase text-gray-500 mb-4 tracking-wider">Add New Model</h3>
-               <form onSubmit={handleAddModel} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+               <h3 className="text-sm font-mono uppercase text-gray-500 mb-4 tracking-wider">Add New Chat Model</h3>
+               <form onSubmit={handleAddModel} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                   <div className="md:col-span-1">
                     <label className="block text-xs text-gray-400 mb-1">Display Name</label>
                     <input
                       type="text"
-                      placeholder="e.g. DALL-E 3"
+                      placeholder="e.g. GPT-4o"
                       value={newModel.name}
                       onChange={(e) => setNewModel({...newModel, name: e.target.value})}
                       className={inputClass}
@@ -270,7 +287,7 @@ const AdminDashboard = () => {
                     <label className="block text-xs text-gray-400 mb-1">Model ID</label>
                     <input
                       type="text"
-                      placeholder="e.g. dall-e-3"
+                      placeholder="e.g. gpt-4o"
                       value={newModel.id}
                       onChange={(e) => setNewModel({...newModel, id: e.target.value})}
                       className={inputClass}
@@ -289,17 +306,6 @@ const AdminDashboard = () => {
                     </select>
                   </div>
                   <div className="md:col-span-1">
-                    <label className="block text-xs text-gray-400 mb-1">Type</label>
-                    <select
-                       value={newModel.type}
-                       onChange={(e) => setNewModel({...newModel, type: e.target.value})}
-                       className={inputClass}
-                    >
-                      <option value="text">Chat (Text)</option>
-                      <option value="image">Image Generation</option>
-                    </select>
-                  </div>
-                  <div className="md:col-span-1">
                     <button type="submit" className="w-full bg-white border border-gray-200 text-[#1A1A1A] font-medium px-4 py-3.5 rounded-full hover:bg-gray-50 hover:border-black transition-colors shadow-sm flex items-center justify-center gap-2">
                        <Plus className="w-4 h-4" /> Add
                     </button>
@@ -315,14 +321,13 @@ const AdminDashboard = () => {
                   <th className="px-6 py-4 font-medium">Name</th>
                   <th className="px-6 py-4 font-medium">Model ID</th>
                   <th className="px-6 py-4 font-medium">Provider</th>
-                  <th className="px-6 py-4 font-medium">Type</th>
                   <th className="px-6 py-4 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {customModels.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-8 text-center text-gray-400 italic">
+                    <td colSpan="4" className="px-6 py-8 text-center text-gray-400 italic">
                       No custom models configured.
                     </td>
                   </tr>
@@ -335,15 +340,6 @@ const AdminDashboard = () => {
                         <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-gray-600 text-xs font-medium capitalize">
                           {model.provider}
                         </span>
-                      </td>
-                       <td className="px-6 py-4">
-                        {model.type === 'image' ? (
-                            <span className="inline-flex items-center gap-1 text-purple-600 font-medium text-xs">
-                                <ImageIcon className="w-3 h-3" /> Image
-                            </span>
-                        ) : (
-                            <span className="text-xs text-gray-500">Text</span>
-                        )}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button

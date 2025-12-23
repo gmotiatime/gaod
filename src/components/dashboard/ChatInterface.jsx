@@ -102,10 +102,7 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
                     )}
                     >
                     <span>{model.name}</span>
-                    <div className="flex items-center gap-1">
-                        {model.type === 'image' && <ImageIcon className="w-3 h-3 text-purple-500" />}
-                        <span className="text-[10px] uppercase font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">{model.provider}</span>
-                    </div>
+                    <span className="text-[10px] uppercase font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-400">{model.provider}</span>
                     </button>
                 ))}
                 </div>
