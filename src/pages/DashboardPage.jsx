@@ -36,8 +36,9 @@ const DashboardPage = () => {
   // Load Chats on Mount (Async now)
   useEffect(() => {
     const loadChats = async () => {
+        if (!user) return;
         try {
-            const savedChats = await chatStore.getChats();
+            const savedChats = await chatStore.getChats(user.id);
             setChats(savedChats);
             if (savedChats.length > 0) {
                 setActiveChatId(savedChats[0].id);
@@ -50,6 +51,7 @@ const DashboardPage = () => {
         }
     };
     if (user) loadChats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Update messages when active chat changes
@@ -64,8 +66,9 @@ const DashboardPage = () => {
   }, [activeChatId]);
 
   const handleNewChat = async () => {
-    const newChat = await chatStore.createChat();
-    const allChats = await chatStore.getChats();
+    if (!user) return;
+    const newChat = await chatStore.createChat(null, user.id);
+    const allChats = await chatStore.getChats(user.id);
     setChats(allChats);
     setActiveChatId(newChat.id);
     setActiveMessages(newChat.messages);
@@ -78,7 +81,7 @@ const DashboardPage = () => {
 
   const handleDeleteChat = async (id) => {
     await chatStore.deleteChat(id);
-    const updatedChats = await chatStore.getChats();
+    const updatedChats = await chatStore.getChats(user.id);
     setChats(updatedChats);
 
     if (activeChatId === id) {
@@ -90,14 +93,12 @@ const DashboardPage = () => {
     }
   };
 
-  // Helper: Generate Title
+  // Helper: Generate Title (Simplified, DB handles updates)
+  // eslint-disable-next-line no-unused-vars
   const generateTitle = async (firstMessage, chatId) => {
-     let title = firstMessage.slice(0, 30);
-     if (firstMessage.length > 30) title += '...';
-
-     await chatStore.updateTitle(chatId, title);
-     const chats = await chatStore.getChats();
-     setChats(chats);
+      // Logic for title update is typically handled by AI or simpler logic
+      // For now, if chatStore handles it or we manually update:
+      // chatStore.addMessage handles simple title gen for "New Chat"
   };
 
   // MEMORY HELPER (Use DB)
@@ -111,14 +112,16 @@ const DashboardPage = () => {
         finalContent += `\n\n[Attached ${attachments.length} file(s): ${attachments.map(a => a.name).join(', ')}]`;
     }
 
-    await chatStore.addMessage(activeChatId, 'user', finalContent, attachments);
+    // Add User Message
+    await chatStore.addMessage(activeChatId, 'user', finalContent);
 
-    const isFirstMessage = activeMessages.length === 0;
-
+    // Refresh UI
     const updatedChat = await chatStore.getChat(activeChatId);
-    setChats(await chatStore.getChats());
+    setChats(await chatStore.getChats(user.id));
     setActiveMessages(updatedChat.messages);
     setIsTyping(true);
+
+    const isFirstMessage = updatedChat.messages.length <= 1;
 
     try {
         let aiResponseText = '';
@@ -161,10 +164,6 @@ These tags will be shown to the user to demonstrate your reasoning.
 
         // --- STANDARD TEXT CHAT (VERTEX ONLY) ---
         try {
-            // Vertex / Google Payload Structure
-            // Note: Vertex API endpoint provided by user:
-            // https://aiplatform.googleapis.com/v1/publishers/google/models/{MODEL}:generateContent?key={KEY}
-
             if (vertexKey) {
                 const url = `https://aiplatform.googleapis.com/v1/publishers/google/models/${model.id}:generateContent?key=${vertexKey}`;
 
@@ -173,8 +172,6 @@ These tags will be shown to the user to demonstrate your reasoning.
                         role: 'user',
                         parts: [{ text: fullSystemPrompt + "\n\nUser: " + finalContent }]
                     }]
-                    // Vertex system_instruction support varies by model version/endpoint.
-                    // To be safe, we prepend to user message as above.
                 };
 
                 const res = await fetch(url, {
@@ -224,7 +221,7 @@ These tags will be shown to the user to demonstrate your reasoning.
              const code = codeMatch[1];
              try {
                 // Safe(r) eval
-                // eslint-disable-next-line no-new-func
+
                 const result = new Function(`return (${code})`)();
                 aiResponseText = aiResponseText.replace(codeMatch[0], `\`\`\`output\n${result}\n\`\`\``);
              } catch (e) {
@@ -252,7 +249,7 @@ I received: "${content}".
 
         const finalChat = await chatStore.getChat(activeChatId);
         setActiveMessages(finalChat.messages);
-        setChats(await chatStore.getChats());
+        setChats(await chatStore.getChats(user.id));
 
         if (isFirstMessage) generateTitle(content, activeChatId);
 

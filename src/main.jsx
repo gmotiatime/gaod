@@ -7,6 +7,10 @@ import DesignPage from './pages/DesignPage.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import './index.css'
+import { initDB } from './lib/db';
+
+// Initialize Database (Seed Admin if needed)
+initDB();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
