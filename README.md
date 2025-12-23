@@ -7,6 +7,40 @@ Key features:
 - **Tools:** Real-time Web Search (Google), Image Generation (Google/Imagen), Code Execution (Client-side), and Long-Term Memory.
 - **Architecture:** Client-side first, but supports persistent database syncing via Supabase.
 
+## Chat Architecture (Updated)
+
+The Chat system is designed for stability, scalability, and performance.
+
+### 1. Data Model
+Messages are stored in a standard JSON structure within the `chats` table (column `messages`):
+```json
+{
+  "id": "timestamp_id",
+  "role": "user" | "assistant",
+  "content": "Message text...",
+  "createdAt": "ISOString",
+  "metadata": {},
+  "tokens": 0
+}
+```
+
+### 2. Service Layer (`src/lib/chatService.js`)
+- Handles API interactions (Vertex/Gemini).
+- Processes System Prompts and Tool Execution (Memory, Code).
+- Designed to support Streaming (via callback).
+
+### 3. Hook (`src/hooks/useChat.js`)
+- **Optimistic UI:** Messages appear instantly before the API responds.
+- **Double-Submit Protection:** Prevents duplicate requests while typing.
+- **Cancellation:** Supports aborting requests.
+- **Error Handling:** Graceful fallbacks and retry capability (ready).
+
+### 4. Persistence
+- **Supabase Adapter:** Maps application state to the `chats` table.
+- **Synchronization:** Chat history is loaded on mount and synced after every message.
+
+---
+
 ## Database Setup
 
 By default, the application runs in **Local Mode** using your browser's `localStorage`. This is perfect for testing and single-user demos.
