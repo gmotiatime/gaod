@@ -1,5 +1,5 @@
-import { localAdapter } from './localAdapter';
-import { supabaseAdapter } from './supabaseAdapter';
+import { localAdapter } from './localAdapter.js';
+import { supabaseAdapter } from './supabaseAdapter.js';
 
 // Configuration: Determine which adapter to use
 // Hardcoded to SUPABASE for this plan
@@ -26,7 +26,34 @@ export const initDB = async () => {
             localStorage.setItem('brand_ai_users', JSON.stringify([adminUser]));
         }
     } else {
-        // Supabase init if needed (mostly handled by client connection)
-        console.log("Supabase Adapter Ready.");
+        // Supabase init
+        console.log("[DB] Checking Supabase Admin User...");
+        try {
+            const adminEmail = 'gmotiaaa@gmail.com';
+            const existingAdmin = await db.getUserByEmail(adminEmail);
+
+            if (!existingAdmin) {
+                console.log("[DB] Admin user not found. Creating...");
+                const newAdmin = {
+                    id: 'admin-1',
+                    email: adminEmail,
+                    password: '2099121',
+                    role: 'admin',
+                    name: 'Admin User',
+                    createdAt: new Date().toISOString()
+                };
+
+                const created = await db.createUser(newAdmin);
+                if (created) {
+                    console.log("[DB] Admin user created successfully.");
+                } else {
+                    console.error("[DB] Failed to create admin user.");
+                }
+            } else {
+                console.log("[DB] Admin user exists.");
+            }
+        } catch (err) {
+            console.error("[DB] Error initializing admin user:", err);
+        }
     }
 };
