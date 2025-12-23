@@ -30,7 +30,8 @@ export const auth = {
     const user = users.find(u => u.email === email && u.password === password);
 
     if (user) {
-      const { password, ...userWithoutPassword } = user;
+      // eslint-disable-next-line no-unused-vars
+      const { password: _, ...userWithoutPassword } = user;
       localStorage.setItem(SESSION_KEY, JSON.stringify(userWithoutPassword));
       return { success: true, user: userWithoutPassword };
     }
@@ -58,6 +59,7 @@ export const auth = {
 
     await new Promise(resolve => setTimeout(resolve, 500));
     const users = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    return users.map(({ password, ...u }) => u);
+    // eslint-disable-next-line no-unused-vars
+    return users.map(({ password: _, ...u }) => u);
   }
 };
