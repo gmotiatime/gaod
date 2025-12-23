@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/dashboard/Sidebar';
 import ChatInterface from '../components/dashboard/ChatInterface';
@@ -104,9 +104,9 @@ const DashboardPage = () => {
 
         let usedRealApi = false;
 
-        // Naive frontend implementation for demo purposes
-        if (model.provider === 'openai' && openAiKey) {
-            try {
+        // Improved API Implementation
+        try {
+            if (model.provider === 'openai' && openAiKey) {
                 const res = await fetch('https://api.openai.com/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openAiKey}` },
@@ -115,18 +115,66 @@ const DashboardPage = () => {
                         messages: [{ role: 'user', content }]
                     })
                 });
+                if (!res.ok) throw new Error(`OpenAI Error: ${res.status}`);
                 const data = await res.json();
                 if (data.choices?.[0]?.message?.content) {
                     aiResponseText = data.choices[0].message.content;
                     usedRealApi = true;
                 }
-            } catch (e) { console.error("API Call Failed", e); }
+            } else if (model.provider === 'google' && googleKey) {
+                // Google Gemini
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model.id}:generateContent?key=${googleKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: content }] }]
+                    })
+                });
+                if (!res.ok) throw new Error(`Google Error: ${res.status}`);
+                const data = await res.json();
+                if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+                    aiResponseText = data.candidates[0].content.parts[0].text;
+                    usedRealApi = true;
+                }
+            } else if (model.provider === 'anthropic' && anthropicKey) {
+                // Anthropic (Note: Likely to fail CORS in browser, but implemented as requested)
+                const res = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: {
+                        'x-api-key': anthropicKey,
+                        'anthropic-version': '2023-06-01',
+                        'content-type': 'application/json',
+                        'dangerously-allow-browser': 'true'
+                    },
+                    body: JSON.stringify({
+                        model: model.id,
+                        max_tokens: 1024,
+                        messages: [{ role: 'user', content }]
+                    })
+                });
+                if (!res.ok) throw new Error(`Anthropic Error: ${res.status}`);
+                const data = await res.json();
+                if (data.content?.[0]?.text) {
+                    aiResponseText = data.content[0].text;
+                    usedRealApi = true;
+                }
+            }
+        } catch (e) {
+            console.error("API Call Failed", e);
+            // Append error details to simulation to help user debug
+            aiResponseText = `[Error: ${e.message}]`;
         }
 
         // Fallback Simulation if no key or failure
         if (!usedRealApi) {
-            await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-            aiResponseText = `[Simulated ${model.name} Response]\n\nI have processed your request: "${content}".\n\nSince no valid API key was configured or the call failed (CORS/Network), I am generating this placeholder. Configure keys in the Admin Panel to try real generation.`;
+            await new Promise(resolve => setTimeout(resolve, 800));
+            // If we caught an error above, aiResponseText might start with [Error...
+            // If not, it means no key was found or provider unknown.
+            if (!aiResponseText.startsWith('[Error')) {
+                aiResponseText = `[Simulated ${model.name} Response]\n\nI have processed your request: "${content}".\n\n(No valid API key found for ${model.provider} or provider not supported in client mode).`;
+            } else {
+                aiResponseText += `\n\nFalling back to simulation mode due to the error above. Check your API key in Admin.`;
+            }
         }
 
         // 3. Add AI Message

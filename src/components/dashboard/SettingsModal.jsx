@@ -2,7 +2,6 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { X, User, Save, Lock } from 'lucide-react';
-import { auth } from '../../lib/auth';
 
 const SettingsModal = ({ isOpen, onClose, user, onUpdateUser }) => {
   const [name, setName] = useState(user?.name || '');
@@ -31,6 +30,7 @@ const SettingsModal = ({ isOpen, onClose, user, onUpdateUser }) => {
             localStorage.setItem('brand_ai_users', JSON.stringify(users));
 
             // Update session
+            // eslint-disable-next-line no-unused-vars
             const { password: _, ...safeUser } = updatedUser;
             localStorage.setItem('brand_ai_session', JSON.stringify(safeUser));
 

@@ -4,7 +4,6 @@ import MoleculeIcon from '../MoleculeIcon';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../../lib/auth';
 import { cn } from '../../lib/utils';
-import { useEffect } from 'react';
 
 const Sidebar = ({ user, chats, activeChatId, onSelectChat, onNewChat, onDeleteChat, onOpenSettings, isOpen, onClose }) => {
   const navigate = useNavigate();

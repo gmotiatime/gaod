@@ -8,18 +8,19 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
   const [selectedModel, setSelectedModel] = useState('GPT-4o');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  // Load custom models from local storage + defaults
+  // Load custom models from local storage (User requested removal of defaults)
   const [availableModels, setAvailableModels] = useState([]);
 
   useEffect(() => {
     const customModels = JSON.parse(localStorage.getItem('gaod_custom_models') || '[]');
-    const defaults = [
-        { name: 'GPT-4o', id: 'gpt-4o', provider: 'openai' },
-        { name: 'Claude 3.5 Sonnet', id: 'claude-3-5-sonnet-20240620', provider: 'anthropic' },
-        { name: 'Gemini Pro 1.5', id: 'gemini-1.5-pro', provider: 'google' }
-    ];
-    setAvailableModels([...defaults, ...customModels]);
-  }, []);
+    setAvailableModels(customModels);
+    // If current selected model is not in list (and list not empty), select first
+    if (customModels.length > 0 && !customModels.find(m => m.name === selectedModel)) {
+        setSelectedModel(customModels[0].name);
+    } else if (customModels.length === 0) {
+        setSelectedModel('No Models');
+    }
+  }, [selectedModel]);
 
   const messagesEndRef = useRef(null);
 
@@ -100,7 +101,7 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
           >
             {/* Avatar */}
             <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${msg.role === 'assistant' || msg.role === 'ai' ? 'bg-[#1A1A1A] text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>
-              {msg.role === 'assistant' || msg.role === 'ai' ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
+              {msg.role === 'assistant' || msg.role === 'ai' ? <MoleculeIcon className="w-4 h-4 text-white" mode="static" /> : <User className="w-4 h-4" />}
             </div>
 
             {/* Bubble */}
