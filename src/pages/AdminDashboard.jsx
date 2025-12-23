@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../lib/auth';
 import { db } from '../lib/db';
-import { LogOut, Users, Shield, Key, Save, Plus, Trash2, Cpu, Brain, Search, Database, RefreshCcw } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
+import { LogOut, Users, Shield, Key, Save, Plus, Trash2, Cpu, Brain, CheckCircle, Database } from 'lucide-react';
 
 const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
@@ -12,10 +11,6 @@ const AdminDashboard = () => {
 
   // Vertex AI Keys
   const [vertexKey, setVertexKey] = useState('');
-
-  // Supabase Config
-  const [supabaseUrl, setSupabaseUrl] = useState('');
-  const [supabaseKey, setSupabaseKey] = useState('');
 
   // Global Settings
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -41,21 +36,17 @@ const AdminDashboard = () => {
     setCurrentUser(user);
 
     const loadSettings = async () => {
-        setVertexKey(await db.getSetting('gaod_vertex_key') || '');
-
-        setSupabaseUrl(localStorage.getItem('brand_ai_supabase_url') || '');
-        setSupabaseKey(localStorage.getItem('brand_ai_supabase_key') || '');
-
-        setSystemPrompt(await db.getSetting('gaod_system_prompt') || '');
-
-        const models = await db.getSetting('gaod_custom_models');
-        setCustomModels(models ? JSON.parse(models) : []);
-
         try {
+            setVertexKey(await db.getSetting('gaod_vertex_key') || '');
+            setSystemPrompt(await db.getSetting('gaod_system_prompt') || '');
+
+            const models = await db.getSetting('gaod_custom_models');
+            setCustomModels(models ? JSON.parse(models) : []);
+
             const data = await auth.getAllUsers();
             setUsers(data);
         } catch (err) {
-            console.error(err);
+            console.error("Error loading admin settings:", err);
         } finally {
             setLoading(false);
         }
@@ -71,51 +62,21 @@ const AdminDashboard = () => {
   const handleSaveKeys = async (e) => {
     e.preventDefault();
     await db.setSetting('gaod_vertex_key', vertexKey);
-    // Clearing old keys for clarity (optional, but good practice per user request to remove others)
+    // Clearing old keys for clarity
     await db.setSetting('gaod_openai_key', '');
     await db.setSetting('gaod_anthropic_key', '');
     await db.setSetting('gaod_google_key', '');
     await db.setSetting('gaod_search_key', '');
     await db.setSetting('gaod_search_cx', '');
 
-    setSavedMessage('Configuration saved.');
+    setSavedMessage('Configuration saved to Supabase.');
     setTimeout(() => setSavedMessage(''), 3000);
-  };
-
-  const handleConnectDb = async (e) => {
-      e.preventDefault();
-      if (!supabaseUrl || !supabaseKey) {
-          alert("Please enter both URL and Key.");
-          return;
-      }
-
-      try {
-          const client = createClient(supabaseUrl, supabaseKey);
-          const { count, error } = await client.from('app_users').select('*', { count: 'exact', head: true });
-
-          if (error) {
-              if (error.code === '42P01') {
-                  alert("Connection successful but tables are missing! Please run the SQL Schema provided.");
-              } else {
-                  throw error;
-              }
-          } else {
-              localStorage.setItem('brand_ai_supabase_url', supabaseUrl);
-              localStorage.setItem('brand_ai_supabase_key', supabaseKey);
-              if (confirm(`Connection successful! Found ${count !== null ? count : 0} users.\n\nReload page to switch to Supabase mode?`)) {
-                  window.location.reload();
-              }
-          }
-      } catch (err) {
-          alert(`Connection Failed: ${err.message}`);
-          console.error(err);
-      }
   };
 
   const handleSaveSystem = async (e) => {
     e.preventDefault();
     await db.setSetting('gaod_system_prompt', systemPrompt);
-    setSavedMessage('Memory updated.');
+    setSavedMessage('Memory updated in Supabase.');
     setTimeout(() => setSavedMessage(''), 3000);
   };
 
@@ -198,54 +159,32 @@ const AdminDashboard = () => {
           <p className="text-gray-500 text-lg max-w-2xl font-light">Manage system configuration, AI models, and user access securely.</p>
         </header>
 
-        {/* Database Connection */}
+        {/* Database Connection Status */}
         <div className={cardClass}>
            <div className={sectionHeaderClass}>
              <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
                 <Database className="w-5 h-5" />
              </div>
-             <h2 className="font-serif text-2xl">Database Connection</h2>
+             <h2 className="font-serif text-2xl">Database Status</h2>
            </div>
 
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                <div>
-                   <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-                       Connect to <strong className="text-[#1A1A1A]">Supabase</strong> (PostgreSQL) to sync data across devices.
-                       Leave fields empty to use Local Storage (Offline Mode).
+                   <div className="flex items-center gap-3 p-4 bg-green-50 text-green-700 rounded-xl border border-green-100 mb-4">
+                       <CheckCircle className="w-5 h-5" />
+                       <span className="font-medium">Connected to Supabase</span>
+                   </div>
+                   <p className="text-sm text-gray-600 mb-2 leading-relaxed">
+                       The system is configured to use the managed Supabase instance.
                    </p>
-                   <form onSubmit={handleConnectDb} className="space-y-5">
-                        <div>
-                            <label className="block text-xs font-medium text-gray-500 uppercase tracking-widest mb-2">Project URL</label>
-                            <input
-                              type="text"
-                              value={supabaseUrl}
-                              onChange={(e) => setSupabaseUrl(e.target.value)}
-                              placeholder="https://xyz.supabase.co"
-                              className={inputClass}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-gray-500 uppercase tracking-widest mb-2">Anon Public Key</label>
-                            <input
-                              type="password"
-                              value={supabaseKey}
-                              onChange={(e) => setSupabaseKey(e.target.value)}
-                              placeholder="eyJh..."
-                              className={inputClass}
-                            />
-                        </div>
-                        <div className="pt-2">
-                            <button type="submit" className={primaryButtonClass}>
-                                <RefreshCcw className="w-4 h-4" />
-                                Test & Connect
-                            </button>
-                        </div>
-                   </form>
+                   <p className="text-xs text-gray-400 font-mono bg-gray-50 p-3 rounded-lg border border-gray-100 break-all">
+                       URL: https://hbpowbnojimuolkgquqr.supabase.co
+                   </p>
                </div>
 
                <div className="bg-[#1e1e1e] rounded-2xl p-6 shadow-inner ring-1 ring-white/10 relative group">
                    <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
-                       <span className="text-[10px] text-gray-400 font-mono uppercase tracking-widest">SQL Schema Setup</span>
+                       <span className="text-[10px] text-gray-400 font-mono uppercase tracking-widest">SQL Schema Reference</span>
                        <button
                          className="text-xs text-blue-400 hover:text-blue-300 font-mono bg-blue-500/10 px-2 py-1 rounded transition-colors"
                          onClick={() => navigator.clipboard.writeText(document.getElementById('sql-code').innerText)}
@@ -253,8 +192,8 @@ const AdminDashboard = () => {
                            Copy SQL
                        </button>
                    </div>
-                   <pre id="sql-code" className="text-[11px] font-mono text-gray-300 whitespace-pre-wrap h-64 overflow-y-auto custom-scrollbar selection:bg-blue-500/30">
-{`-- Run this in Supabase SQL Editor
+                   <pre id="sql-code" className="text-[11px] font-mono text-gray-300 whitespace-pre-wrap h-40 overflow-y-auto custom-scrollbar selection:bg-blue-500/30">
+{`-- Run this in Supabase SQL Editor if tables are missing
 
 create table if not exists app_users (
   id text primary key,
@@ -284,7 +223,7 @@ alter table app_users enable row level security;
 alter table app_settings enable row level security;
 alter table chats enable row level security;
 
--- Allow public access (Demo Mode)
+-- Allow public access (For Demo/Prototype)
 create policy "Public Users" on app_users for all using (true);
 create policy "Public Settings" on app_settings for all using (true);
 create policy "Public Chats" on chats for all using (true);`}

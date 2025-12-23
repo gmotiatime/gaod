@@ -2,8 +2,8 @@ import { localAdapter } from './localAdapter';
 import { supabaseAdapter } from './supabaseAdapter';
 
 // Configuration: Determine which adapter to use
-// Default to LOCAL for now, unless ENV var specifies 'SUPABASE'
-const DB_MODE = import.meta.env.VITE_DB_MODE || 'LOCAL';
+// Hardcoded to SUPABASE for this plan
+const DB_MODE = 'SUPABASE';
 
 console.log(`[DB] Initializing database in ${DB_MODE} mode.`);
 
@@ -25,5 +25,8 @@ export const initDB = async () => {
             };
             localStorage.setItem('brand_ai_users', JSON.stringify([adminUser]));
         }
+    } else {
+        // Supabase init if needed (mostly handled by client connection)
+        console.log("Supabase Adapter Ready.");
     }
 };

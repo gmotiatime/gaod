@@ -31,6 +31,7 @@ const Typewriter = ({ text, onComplete }) => {
        <ReactMarkdown
          remarkPlugins={[remarkGfm]}
          components={{
+              // eslint-disable-next-line no-unused-vars
             img: ({node, ...props}) => <img {...props} className="rounded-xl border border-gray-200 shadow-lg my-3 max-w-full h-auto" />
          }}
        >
@@ -272,6 +273,7 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
                              <ReactMarkdown
                                remarkPlugins={[remarkGfm]}
                                components={{
+                                  // eslint-disable-next-line no-unused-vars
                                   img: ({node, ...props}) => <img {...props} className="rounded-xl border border-gray-200 shadow-lg my-3 max-w-full h-auto" />
                                }}
                              >

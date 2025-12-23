@@ -1,6 +1,7 @@
 // Local Storage Adapter for DB
 // Simulates a simple document store
 
+// eslint-disable-next-line no-unused-vars
 const STORAGE_PREFIX = 'gaod_db_';
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
