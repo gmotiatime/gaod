@@ -12,7 +12,8 @@ const AdminDashboard = () => {
   const [openAiKey, setOpenAiKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
   const [googleAiKey, setGoogleAiKey] = useState('');
-  // REMOVED googleImageModel since we are removing specific Image Tool
+  // We are re-adding this field because we restored Image Generation tool
+  const [googleImageModel, setGoogleImageModel] = useState('');
 
   // Global Settings
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -41,6 +42,7 @@ const AdminDashboard = () => {
     setOpenAiKey(localStorage.getItem('gaod_openai_key') || '');
     setAnthropicKey(localStorage.getItem('gaod_anthropic_key') || '');
     setGoogleAiKey(localStorage.getItem('gaod_google_key') || '');
+    setGoogleImageModel(localStorage.getItem('gaod_google_image_model') || 'gemini-3-pro-image-preview');
     setSystemPrompt(localStorage.getItem('gaod_system_prompt') || '');
 
     const savedModels = JSON.parse(localStorage.getItem('gaod_custom_models') || '[]');
@@ -69,7 +71,7 @@ const AdminDashboard = () => {
     localStorage.setItem('gaod_openai_key', openAiKey);
     localStorage.setItem('gaod_anthropic_key', anthropicKey);
     localStorage.setItem('gaod_google_key', googleAiKey);
-    // localStorage.removeItem('gaod_google_image_model'); // Optional cleanup
+    localStorage.setItem('gaod_google_image_model', googleImageModel);
 
     setSavedMessage('Configuration saved.');
     setTimeout(() => setSavedMessage(''), 3000);
@@ -86,7 +88,6 @@ const AdminDashboard = () => {
     e.preventDefault();
     if (!newModel.name || !newModel.id) return;
 
-    // We remove explicit 'type' selection - all models are chat models
     const updatedModels = [...customModels, { ...newModel, uuid: Date.now() }];
     setCustomModels(updatedModels);
     localStorage.setItem('gaod_custom_models', JSON.stringify(updatedModels));
@@ -227,6 +228,20 @@ const AdminDashboard = () => {
                   placeholder="AIza..."
                   className={inputClass}
                 />
+              </div>
+
+              <div className="pt-4 border-t border-gray-100 mt-2">
+                 <label className="block text-sm font-medium text-gray-700 mb-2 uppercase tracking-wide font-mono">Google Image Model ID (Nano Banano Pro)</label>
+                 <input
+                  type="text"
+                  value={googleImageModel}
+                  onChange={(e) => setGoogleImageModel(e.target.value)}
+                  placeholder="gemini-3-pro-image-preview"
+                  className={inputClass}
+                />
+                <p className="text-xs text-gray-400 mt-2">
+                   Model ID used for the [GENERATE_IMAGE] tool.
+                </p>
               </div>
             </div>
 

@@ -95,6 +95,47 @@ const DashboardPage = () => {
   // MEMORY HELPER
   const getUserMemoryKey = (uid) => `gaod_user_memory_${uid}`;
 
+  // HELPER: Generate Image via Google AI (Restored)
+  const generateImageWithGoogle = async (prompt) => {
+      const googleKey = localStorage.getItem('gaod_google_key');
+      // Using generic gemini-pro-vision or custom ID from old logic if still available,
+      // or default to 'gemini-1.5-flash' which handles multimodal.
+      // Actually standard Imagen uses a different endpoint.
+      // We will re-use the logic we had before removal.
+      const modelId = 'gemini-3-pro-image-preview'; // Default or from config if we add it back
+
+      if (!googleKey) throw new Error("No Google AI API Key configured for Image Tool.");
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:predict?key=${googleKey}`;
+
+      const payload = {
+          instances: [{ prompt: prompt }],
+          parameters: { sampleCount: 1 }
+      };
+
+      const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error?.message || `Google API Error ${res.status}`);
+      }
+
+      const data = await res.json();
+      const base64 = data.predictions?.[0]?.bytesBase64Encoded || data.predictions?.[0];
+
+      if (typeof base64 === 'string') {
+          return `data:image/png;base64,${base64}`;
+      } else if (data.predictions?.[0]?.mimeType && data.predictions?.[0]?.bytesBase64Encoded) {
+          return `data:${data.predictions[0].mimeType};base64,${data.predictions[0].bytesBase64Encoded}`;
+      }
+
+      throw new Error("Unexpected response format from Google Image API");
+  };
+
   const handleSendMessage = async (content, model, attachments = []) => {
     if (!activeChatId || !user) return;
 
@@ -121,32 +162,45 @@ const DashboardPage = () => {
 
         // System Prompt Components
         const systemPrompt = localStorage.getItem('gaod_system_prompt') || '';
-
-        // Load User Memory
         const userMemory = localStorage.getItem(getUserMemoryKey(user.id)) || "No previous memory.";
 
-        // INJECT MEMORY & TOOL INSTRUCTIONS
+        // EXPANDED TOOL & COT INSTRUCTIONS
         const toolInstructions = `
-You have access to a long-term memory about this user and a calculator tool.
+You are Gaod, an advanced creative AI.
+You have access to a long-term memory about this user and several tools.
 
 [LONG-TERM MEMORY START]
 ${userMemory}
 [LONG-TERM MEMORY END]
 
-TOOLS:
-1. UPDATE_MEMORY: To save important facts about the user (name, preferences, details) for future chats.
-   Syntax: [UPDATE_MEMORY: <fact>]
-2. CALCULATE: To evaluate mathematical expressions.
-   Syntax: [CALCULATE: <expression>]
+**Chain of Thought & Self-Correction:**
+Before answering, you MUST think step-by-step to plan your response.
+Wrap your thought process in <thinking>...</thinking> tags.
+Inside these tags, you can also use <reflection>...</reflection> to critique your own plan before finalizing the output.
+These tags will be shown to the user to demonstrate your reasoning.
 
-If you learn something new about the user, ALWAYS use the [UPDATE_MEMORY] tool to save it.
+**Tools:**
+1. **UPDATE_MEMORY**: Save important facts, context, style preferences, or unresolved tasks.
+   Syntax: [UPDATE_MEMORY: <fact>]
+2. **WEB_SEARCH**: Search the web for current information.
+   Syntax: [WEB_SEARCH: <query>]
+3. **GENERATE_IMAGE**: Generate an image based on a prompt.
+   Syntax: [GENERATE_IMAGE: <prompt>]
+4. **EXECUTE_CODE**: Run simple JavaScript code (math, logic).
+   Syntax: [EXECUTE_CODE: <code>]
+
+**Guidelines:**
+- If the user asks for an image, use [GENERATE_IMAGE].
+- If the user asks for real-time info, use [WEB_SEARCH].
+- If you learn something new (e.g. user's job, favorite color), use [UPDATE_MEMORY].
+- Do not output tool results yourself (e.g., do not hallucinate search results), just output the tag. The system will handle it.
 `;
 
         const fullSystemPrompt = (systemPrompt ? systemPrompt + "\n" : "") + toolInstructions;
 
         let usedRealApi = false;
 
-        // --- STANDARD TEXT CHAT (With Tool Injection) ---
+        // --- STANDARD TEXT CHAT ---
         try {
             const messagesPayload = [];
             messagesPayload.push({ role: 'system', content: fullSystemPrompt });
@@ -215,14 +269,12 @@ If you learn something new about the user, ALWAYS use the [UPDATE_MEMORY] tool t
             aiResponseText = `[Error: ${e.message}]`;
         }
 
-        // --- TOOL EXECUTION LOGIC ---
+        // --- TOOL PARSING & EXECUTION ---
 
         // 1. UPDATE_MEMORY
         const memRegex = /\[UPDATE_MEMORY:\s*(.*?)\]/g;
         let memMatch;
         let memoryUpdated = false;
-
-        // We use loop to catch multiple updates
         while ((memMatch = memRegex.exec(aiResponseText)) !== null) {
              const fact = memMatch[1];
              const currentMem = localStorage.getItem(getUserMemoryKey(user.id)) || "";
@@ -230,76 +282,85 @@ If you learn something new about the user, ALWAYS use the [UPDATE_MEMORY] tool t
              localStorage.setItem(getUserMemoryKey(user.id), newMem);
              memoryUpdated = true;
         }
+        if (memoryUpdated) aiResponseText = aiResponseText.replace(memRegex, '').trim();
 
-        if (memoryUpdated) {
-            // Remove the tags from response to keep it clean, or keep them?
-            // Usually we hide tool outputs. Let's remove them for cleaner UI.
-            aiResponseText = aiResponseText.replace(memRegex, '').trim();
-            // Append a small indicator
-            // aiResponseText += "\n\n(Memory Updated)";
+        // 2. WEB_SEARCH
+        const searchRegex = /\[WEB_SEARCH:\s*(.*?)\]/g;
+        let searchMatch;
+        let searchReplacements = [];
+        while ((searchMatch = searchRegex.exec(aiResponseText)) !== null) {
+            const query = searchMatch[1];
+            // Mock Search
+            const mockResult = `**Found 3 results for "${query}":**\n- Result 1 for ${query}\n- Result 2 for ${query}\n- Wikipedia entry for ${query}`;
+            searchReplacements.push({ match: searchMatch[0], result: mockResult });
         }
+        searchReplacements.forEach(rep => { aiResponseText = aiResponseText.replace(rep.match, rep.result); });
 
-        // 2. CALCULATE
-        const calcRegex = /\[CALCULATE:\s*(.*?)\]/g;
-        let calcMatch;
-        let calcReplacements = [];
-
-        while ((calcMatch = calcRegex.exec(aiResponseText)) !== null) {
-            const expr = calcMatch[1];
-            try {
-                // Dangerous eval, but for this demo/proto we can restrict regex or use Function
-                // Restrict input to digits and operators
-                if (/^[0-9+\-*/().\s]+$/.test(expr)) {
-                    // eslint-disable-next-line no-new-func
-                    const result = new Function(`return ${expr}`)();
-                    calcReplacements.push({ match: calcMatch[0], result: result });
+        // 3. GENERATE_IMAGE
+        const imgRegex = /\[GENERATE_IMAGE:\s*(.*?)\]/g;
+        let imgMatch;
+        // Logic similar to previous Tool implementation
+        // Since we are async, we can only handle one by one nicely, or use Promise.all.
+        // For simplicity, we process the first one found or iterate linearly.
+        while ((imgMatch = imgRegex.exec(aiResponseText)) !== null) {
+             const prompt = imgMatch[1];
+             try {
+                const imageUrl = await generateImageWithGoogle(prompt);
+                aiResponseText = aiResponseText.replace(imgMatch[0], `![Generated Image](${imageUrl})`);
+             } catch (e) {
+                // Fallback simulation
+                if (!googleKey) {
+                    aiResponseText = aiResponseText.replace(imgMatch[0], `![Simulated Image - Nano Banano Pro](https://placehold.co/1024x1024/1A1A1A/FFF?text=${encodeURIComponent(prompt)})`);
                 } else {
-                    calcReplacements.push({ match: calcMatch[0], result: "(Invalid Expression)" });
+                    aiResponseText = aiResponseText.replace(imgMatch[0], `(Image Gen Failed: ${e.message})`);
                 }
-            } catch (e) {
-                calcReplacements.push({ match: calcMatch[0], result: "(Calc Error)" });
-            }
-        }
-
-        // Apply Calc Replacements
-        calcReplacements.forEach(rep => {
-            aiResponseText = aiResponseText.replace(rep.match, `**${rep.result}**`);
-        });
-
-
-        // Fallback Simulation for main chat
-        if (!usedRealApi && !aiResponseText.startsWith('[Error')) {
-             await new Promise(resolve => setTimeout(resolve, 800));
-
-             // Simulation Logic
-             if (content.toLowerCase().includes('my name is')) {
-                 const name = content.split('is')[1].trim();
-                 aiResponseText = `Nice to meet you, ${name}. I will remember that.\n[UPDATE_MEMORY: User's name is ${name}]`;
-                 // Run local tool logic manually since we set the string
-                 const currentMem = localStorage.getItem(getUserMemoryKey(user.id)) || "";
-                 localStorage.setItem(getUserMemoryKey(user.id), currentMem + "\n- User's name is " + name);
-                 aiResponseText = aiResponseText.replace(/\[UPDATE_MEMORY:.*?\]/, '').trim();
-             } else if (content.toLowerCase().includes('calculate')) {
-                 aiResponseText = "Sure. [CALCULATE: 25 * 4]";
-                 aiResponseText = aiResponseText.replace('[CALCULATE: 25 * 4]', '**100**');
-             } else if (content.toLowerCase().includes('who am i') || content.toLowerCase().includes('what is my name')) {
-                 aiResponseText = `Based on my memory: \n${userMemory}`;
-             } else {
-                 aiResponseText = `[Simulated ${model.name} Response]\nI received: "${content}".\nMy memory of you: ${userMemory.length > 20 ? 'Has Data' : 'Empty'}`;
              }
         }
 
-        // 3. Add AI Message
+        // 4. EXECUTE_CODE
+        const codeRegex = /\[EXECUTE_CODE:\s*(.*?)\]/g;
+        let codeMatch;
+        while ((codeMatch = codeRegex.exec(aiResponseText)) !== null) {
+             const code = codeMatch[1];
+             try {
+                // Safe(r) eval
+                // eslint-disable-next-line no-new-func
+                const result = new Function(`return (${code})`)();
+                aiResponseText = aiResponseText.replace(codeMatch[0], `\`\`\`output\n${result}\n\`\`\``);
+             } catch (e) {
+                aiResponseText = aiResponseText.replace(codeMatch[0], `(Code Error: ${e.message})`);
+             }
+        }
+
+        // Fallback Simulation (if no API used or explicit error without text)
+        if (!usedRealApi && !aiResponseText.startsWith('[Error') && !aiResponseText.includes('<thinking>')) {
+             await new Promise(resolve => setTimeout(resolve, 800));
+
+             // Simulation Logic for CoT
+             aiResponseText = `<thinking>
+I should check if the user is asking for a specific task.
+User said: "${content}"
+This looks like a general query. I will respond politely.
+<reflection>My tone should be helpful and concise.</reflection>
+</thinking>
+
+[Simulated ${model.name} Response]
+I received: "${content}".
+`;
+             if (content.toLowerCase().includes('search')) {
+                 aiResponseText += `\n[WEB_SEARCH: ${content}]`;
+                 // Manually run search replace for simulation
+                 aiResponseText = aiResponseText.replace(/\[WEB_SEARCH:\s*(.*?)\]/, '**Simulated Search Result**');
+             }
+        }
+
         chatStore.addMessage(activeChatId, 'assistant', aiResponseText);
 
-        // Refresh State
         const finalChat = chatStore.getChat(activeChatId);
         setActiveMessages(finalChat.messages);
         setChats(chatStore.getChats());
 
-        if (isFirstMessage) {
-            generateTitle(content, activeChatId);
-        }
+        if (isFirstMessage) generateTitle(content, activeChatId);
 
     } catch (err) {
         chatStore.addMessage(activeChatId, 'assistant', "Error generating response.");

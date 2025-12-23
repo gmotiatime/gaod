@@ -1,10 +1,46 @@
 import { useState, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Send, Paperclip, ChevronDown, User, Bot, Menu, Sparkles, X, File as FileIcon, Image as ImageIcon } from 'lucide-react';
+import { Send, Paperclip, ChevronDown, User, Bot, Menu, Sparkles, X, File as FileIcon, ChevronRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '../../lib/utils';
 import MoleculeIcon from '../MoleculeIcon';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const ThinkingBlock = ({ content }) => {
+  const [isOpen, setIsOpen] = useState(true); // Open by default when it appears
+
+  return (
+    <div className="mb-4 border-l-2 border-gray-200 pl-4 py-1">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 text-xs font-mono uppercase text-gray-400 hover:text-gray-600 mb-2 transition-colors select-none"
+      >
+        <Sparkles className="w-3 h-3" />
+        <span>Reasoning Process</span>
+        <ChevronRight className={cn("w-3 h-3 transition-transform", isOpen && "rotate-90")} />
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="text-xs text-gray-500 font-mono whitespace-pre-wrap leading-relaxed">
+              {content}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+ThinkingBlock.propTypes = {
+  content: PropTypes.string.isRequired
+};
 
 const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
   const [input, setInput] = useState('');
@@ -70,6 +106,21 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Helper to separate Thinking block from content
+  const parseMessageContent = (content) => {
+     // Regex to find <thinking>...</thinking>
+     // Note: dotAll logic is needed for multiline. In JS regex, use `[\s\S]*?` or `s` flag if supported.
+     const thinkingRegex = /<thinking>([\s\S]*?)<\/thinking>/;
+     const match = content.match(thinkingRegex);
+
+     if (match) {
+         const thoughts = match[1].trim();
+         const cleanContent = content.replace(match[0], '').trim();
+         return { thoughts, cleanContent };
+     }
+     return { thoughts: null, cleanContent: content };
+  };
+
   return (
     <div className="flex-1 flex flex-col h-dvh bg-[#F8F8F6] relative">
 
@@ -91,7 +142,7 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
             {isDropdownOpen && (
                 <>
                 <div className="fixed inset-0 z-10" onClick={() => setIsDropdownOpen(false)} />
-                <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-lg py-2 z-20 max-h-[60vh] overflow-y-auto">
+                <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-lg py-2 z-20 max-h-[60vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
                 {availableModels.map((model) => (
                     <button
                     key={model.id + model.name}
@@ -124,64 +175,80 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
             </div>
         )}
 
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex gap-3 md:gap-4 max-w-3xl mx-auto ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
-          >
-            {/* Avatar */}
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${msg.role === 'assistant' || msg.role === 'ai' ? 'bg-[#1A1A1A] text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>
-              {msg.role === 'assistant' || msg.role === 'ai' ? <MoleculeIcon className="w-4 h-4 text-white" mode="static" /> : <User className="w-4 h-4" />}
-            </div>
+        {messages.map((msg) => {
+            const { thoughts, cleanContent } = parseMessageContent(msg.content);
 
-            {/* Bubble */}
-            <div className={`flex flex-col max-w-[85%] md:max-w-[80%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-              <div
-                className={cn(
-                    "px-5 py-3.5 md:px-6 md:py-4 rounded-2xl text-sm md:text-base leading-relaxed shadow-sm whitespace-pre-wrap overflow-hidden",
-                    msg.role === 'user'
-                    ? 'bg-[#1A1A1A] text-white rounded-tr-sm'
-                    : 'bg-white border border-gray-200 text-[#1A1A1A] rounded-tl-sm'
-                )}
+            return (
+              <motion.div
+                key={msg.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className={`flex gap-3 md:gap-4 max-w-3xl mx-auto ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
               >
-                {/* File Attachment Display in Bubble */}
-                {msg.attachments && msg.attachments.length > 0 && (
-                    <div className="mb-3 flex flex-wrap gap-2">
-                        {msg.attachments.map((file, i) => (
-                            <div key={i} className={cn(
-                                "border p-2 rounded-lg flex items-center gap-2 text-xs",
-                                msg.role === 'user' ? "bg-white/10 border-white/20" : "bg-gray-100 border-gray-200"
-                            )}>
-                                <FileIcon className="w-3 h-3" />
-                                <span className="truncate max-w-[150px]">{file.name}</span>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                {/* Avatar */}
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${msg.role === 'assistant' || msg.role === 'ai' ? 'bg-[#1A1A1A] text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>
+                  {msg.role === 'assistant' || msg.role === 'ai' ? <MoleculeIcon className="w-4 h-4 text-white" mode="static" /> : <User className="w-4 h-4" />}
+                </div>
 
-                {/* Markdown Content */}
-                {msg.role === 'user' ? (
-                   <div>{msg.content}</div>
-                ) : (
-                   <div className="prose prose-sm max-w-none prose-headings:font-serif prose-p:leading-relaxed prose-pre:bg-gray-50 prose-pre:border prose-pre:border-gray-100 prose-pre:text-gray-800">
-                     <ReactMarkdown
-                       remarkPlugins={[remarkGfm]}
-                       components={{
-                          // Override image to be responsive
-                          img: ({node, ...props}) => <img {...props} className="rounded-xl border border-gray-200 shadow-sm my-2 max-w-full h-auto" />
-                       }}
-                     >
-                       {msg.content}
-                     </ReactMarkdown>
-                   </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
+                {/* Bubble */}
+                <div className={`flex flex-col max-w-[85%] md:max-w-[80%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                  <div
+                    className={cn(
+                        "px-5 py-3.5 md:px-6 md:py-4 rounded-2xl text-sm md:text-base leading-relaxed shadow-sm whitespace-pre-wrap overflow-hidden",
+                        msg.role === 'user'
+                        ? 'bg-[#1A1A1A] text-white rounded-tr-sm'
+                        : 'bg-white border border-gray-200 text-[#1A1A1A] rounded-tl-sm'
+                    )}
+                  >
+                    {/* File Attachment Display in Bubble */}
+                    {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="mb-3 flex flex-wrap gap-2">
+                            {msg.attachments.map((file, i) => (
+                                <div key={i} className={cn(
+                                    "border p-2 rounded-lg flex items-center gap-2 text-xs",
+                                    msg.role === 'user' ? "bg-white/10 border-white/20" : "bg-gray-100 border-gray-200"
+                                )}>
+                                    <FileIcon className="w-3 h-3" />
+                                    <span className="truncate max-w-[150px]">{file.name}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Thoughts (Only for assistant) */}
+                    {msg.role !== 'user' && thoughts && (
+                        <ThinkingBlock content={thoughts} />
+                    )}
+
+                    {/* Markdown Content */}
+                    {msg.role === 'user' ? (
+                       <div>{cleanContent}</div>
+                    ) : (
+                       <div className="prose prose-sm max-w-none prose-headings:font-serif prose-p:leading-relaxed prose-pre:bg-gray-50 prose-pre:border prose-pre:border-gray-100 prose-pre:text-gray-800">
+                         <ReactMarkdown
+                           remarkPlugins={[remarkGfm]}
+                           components={{
+                              // Override image to be responsive
+                              img: ({node, ...props}) => <img {...props} className="rounded-xl border border-gray-200 shadow-sm my-2 max-w-full h-auto" />
+                           }}
+                         >
+                           {cleanContent}
+                         </ReactMarkdown>
+                       </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            );
+        })}
 
         {isTyping && (
-             <div className="flex gap-4 max-w-3xl mx-auto">
+             <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex gap-4 max-w-3xl mx-auto"
+             >
                  <div className="w-8 h-8 rounded-full bg-[#1A1A1A] text-white flex items-center justify-center flex-shrink-0">
                     <Bot className="w-4 h-4" />
                  </div>
@@ -190,7 +257,7 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75" />
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150" />
                  </div>
-             </div>
+             </motion.div>
         )}
         <div ref={messagesEndRef} className="h-4" />
       </div>
