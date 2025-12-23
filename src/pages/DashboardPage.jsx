@@ -78,102 +78,193 @@ const DashboardPage = () => {
     }
   };
 
-  const handleSendMessage = async (content, model) => {
+  // Helper: Generate Title (Simple simulation or light API call)
+  const generateTitle = async (firstMessage, chatId) => {
+     // In a real app, call a small model to summarize `firstMessage`
+     // Here we just truncate and capitalize
+     let title = firstMessage.slice(0, 30);
+     if (firstMessage.length > 30) title += '...';
+
+     // Update Chat Store
+     // We need to extend chatStore to support renaming, or we just manually update localStorage for now
+     const chats = JSON.parse(localStorage.getItem('brand_ai_chats') || '[]');
+     const chatIndex = chats.findIndex(c => c.id === chatId);
+     if (chatIndex >= 0) {
+         chats[chatIndex].title = title;
+         localStorage.setItem('brand_ai_chats', JSON.stringify(chats));
+         setChats(chats); // Trigger re-render
+     }
+  };
+
+  const handleSendMessage = async (content, model, attachments = []) => {
     if (!activeChatId) return;
 
     // 1. Add User Message
-    chatStore.addMessage(activeChatId, 'user', content);
+    // Note: attachments are metadata here.
+    // In a real app, we'd process the file content and perhaps append it to `content` string for the LLM
+    // or send as separate content parts.
 
-    // Refresh state immediately to show user message
+    // Process text files content if any
+    let finalContent = content;
+
+    // Very simple "read text file" simulation if needed, but for now we just log it.
+    // Ideally we would have read the file in the component and passed the string.
+    // Assuming `attachments` has `rawFile` which is a File object, we can't easily read it here async without delay,
+    // so we rely on the component having done it or just passing metadata.
+    // For this demo, we'll append a note about attachments to the prompt.
+    if (attachments.length > 0) {
+        finalContent += `\n\n[Attached ${attachments.length} file(s): ${attachments.map(a => a.name).join(', ')}]`;
+    }
+
+    // Add message to store
+    // We pass attachments to store so they can be rendered in history
+    chatStore.addMessage(activeChatId, 'user', finalContent, attachments);
+
+    // Auto-title if this is the first real exchange (length 2 after this user msg + ai response, or just check msg count)
+    // Actually `activeMessages` is stale here until next render, so check current length
+    const isFirstMessage = activeMessages.length === 0;
+
+    // Refresh state immediately
     const updatedChat = chatStore.getChat(activeChatId);
-    setChats(chatStore.getChats()); // Update order/preview
+    setChats(chatStore.getChats());
     setActiveMessages(updatedChat.messages);
     setIsTyping(true);
-
-    // 2. Call AI (Simulated or Real)
-    // In a real app, this would use the `model` object to pick the key and endpoint.
-    // Since we don't have a backend proxy, we'll try a direct fetch if keys exist, or simulate.
 
     try {
         let aiResponseText = '';
 
-        // Check for keys
+        // Load Keys & Configs
         const openAiKey = localStorage.getItem('gaod_openai_key');
         const anthropicKey = localStorage.getItem('gaod_anthropic_key');
         const googleKey = localStorage.getItem('gaod_google_key');
+        const systemPrompt = localStorage.getItem('gaod_system_prompt') || '';
 
         let usedRealApi = false;
 
-        // Improved API Implementation
-        try {
-            if (model.provider === 'openai' && openAiKey) {
-                const res = await fetch('https://api.openai.com/v1/chat/completions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openAiKey}` },
-                    body: JSON.stringify({
-                        model: model.id,
-                        messages: [{ role: 'user', content }]
-                    })
-                });
-                if (!res.ok) throw new Error(`OpenAI Error: ${res.status}`);
-                const data = await res.json();
-                if (data.choices?.[0]?.message?.content) {
-                    aiResponseText = data.choices[0].message.content;
-                    usedRealApi = true;
+        // --- IMAGE GENERATION BRANCH ---
+        if (model.type === 'image') {
+             // Use DALL-E 3 logic (assuming OpenAI key)
+             if (openAiKey) {
+                 try {
+                     const res = await fetch('https://api.openai.com/v1/images/generations', {
+                         method: 'POST',
+                         headers: {
+                             'Content-Type': 'application/json',
+                             'Authorization': `Bearer ${openAiKey}`
+                         },
+                         body: JSON.stringify({
+                             model: model.id || 'dall-e-3', // Default to dall-e-3 if not specified
+                             prompt: finalContent,
+                             n: 1,
+                             size: "1024x1024"
+                         })
+                     });
+
+                     if (!res.ok) {
+                         const err = await res.json();
+                         throw new Error(err.error?.message || `Error ${res.status}`);
+                     }
+
+                     const data = await res.json();
+                     const imageUrl = data.data?.[0]?.url;
+                     if (imageUrl) {
+                         aiResponseText = `Here is your generated image:\n\n![Generated Image](${imageUrl})`;
+                         usedRealApi = true;
+                     }
+                 } catch (e) {
+                     aiResponseText = `[Image Generation Error: ${e.message}]`;
+                 }
+             } else {
+                 aiResponseText = `[Error: No OpenAI API Key found for Image Generation]`;
+             }
+        }
+        // --- TEXT CHAT BRANCH ---
+        else {
+            try {
+                // Construct Messages with System Prompt
+                const messagesPayload = [];
+                if (systemPrompt) {
+                    messagesPayload.push({ role: 'system', content: systemPrompt });
                 }
-            } else if (model.provider === 'google' && googleKey) {
-                // Google Gemini
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model.id}:generateContent?key=${googleKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: content }] }]
-                    })
-                });
-                if (!res.ok) throw new Error(`Google Error: ${res.status}`);
-                const data = await res.json();
-                if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    aiResponseText = data.candidates[0].content.parts[0].text;
-                    usedRealApi = true;
+                // Add recent history (last 10 messages)
+                // We map 'ai' role to 'assistant' for APIs
+                const history = activeMessages.slice(-10).map(m => ({
+                    role: m.role === 'ai' ? 'assistant' : m.role,
+                    content: m.content
+                }));
+                messagesPayload.push(...history);
+                messagesPayload.push({ role: 'user', content: finalContent });
+
+                if (model.provider === 'openai' && openAiKey) {
+                    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openAiKey}` },
+                        body: JSON.stringify({
+                            model: model.id,
+                            messages: messagesPayload
+                        })
+                    });
+                    if (!res.ok) throw new Error(`OpenAI Error: ${res.status}`);
+                    const data = await res.json();
+                    if (data.choices?.[0]?.message?.content) {
+                        aiResponseText = data.choices[0].message.content;
+                        usedRealApi = true;
+                    }
+                } else if (model.provider === 'google' && googleKey) {
+                    // Google Gemini
+                    // Gemini format is different (contents: [{ role: 'user', parts: [{ text: ... }] }])
+                    // Simplified for demo
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model.id}:generateContent?key=${googleKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: finalContent }] }],
+                            // System instructions can be added in v1beta/models/gemini-1.5-pro:generateContent but varies by version
+                        })
+                    });
+                    if (!res.ok) throw new Error(`Google Error: ${res.status}`);
+                    const data = await res.json();
+                    if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+                        aiResponseText = data.candidates[0].content.parts[0].text;
+                        usedRealApi = true;
+                    }
+                } else if (model.provider === 'anthropic' && anthropicKey) {
+                     // Anthropic
+                    const res = await fetch('https://api.anthropic.com/v1/messages', {
+                        method: 'POST',
+                        headers: {
+                            'x-api-key': anthropicKey,
+                            'anthropic-version': '2023-06-01',
+                            'content-type': 'application/json',
+                            'dangerously-allow-browser': 'true'
+                        },
+                        body: JSON.stringify({
+                            model: model.id,
+                            max_tokens: 1024,
+                            system: systemPrompt, // Anthropic supports top-level system param
+                            messages: messagesPayload.filter(m => m.role !== 'system') // Filter out system if passing separately
+                        })
+                    });
+                    if (!res.ok) throw new Error(`Anthropic Error: ${res.status}`);
+                    const data = await res.json();
+                    if (data.content?.[0]?.text) {
+                        aiResponseText = data.content[0].text;
+                        usedRealApi = true;
+                    }
                 }
-            } else if (model.provider === 'anthropic' && anthropicKey) {
-                // Anthropic (Note: Likely to fail CORS in browser, but implemented as requested)
-                const res = await fetch('https://api.anthropic.com/v1/messages', {
-                    method: 'POST',
-                    headers: {
-                        'x-api-key': anthropicKey,
-                        'anthropic-version': '2023-06-01',
-                        'content-type': 'application/json',
-                        'dangerously-allow-browser': 'true'
-                    },
-                    body: JSON.stringify({
-                        model: model.id,
-                        max_tokens: 1024,
-                        messages: [{ role: 'user', content }]
-                    })
-                });
-                if (!res.ok) throw new Error(`Anthropic Error: ${res.status}`);
-                const data = await res.json();
-                if (data.content?.[0]?.text) {
-                    aiResponseText = data.content[0].text;
-                    usedRealApi = true;
-                }
+            } catch (e) {
+                console.error("API Call Failed", e);
+                aiResponseText = `[Error: ${e.message}]`;
             }
-        } catch (e) {
-            console.error("API Call Failed", e);
-            // Append error details to simulation to help user debug
-            aiResponseText = `[Error: ${e.message}]`;
         }
 
-        // Fallback Simulation if no key or failure
-        if (!usedRealApi) {
+        // Fallback Simulation
+        if (!usedRealApi && !aiResponseText.startsWith('[Error') && !aiResponseText.startsWith('Here is')) {
             await new Promise(resolve => setTimeout(resolve, 800));
-            // If we caught an error above, aiResponseText might start with [Error...
-            // If not, it means no key was found or provider unknown.
-            if (!aiResponseText.startsWith('[Error')) {
-                aiResponseText = `[Simulated ${model.name} Response]\n\nI have processed your request: "${content}".\n\n(No valid API key found for ${model.provider} or provider not supported in client mode).`;
+            if (model.type === 'image') {
+                 aiResponseText = `![Simulated Image](https://placehold.co/600x400/1A1A1A/FFF?text=Generated+Image)\n\n(Simulated: No OpenAI key for DALL-E)`;
             } else {
-                aiResponseText += `\n\nFalling back to simulation mode due to the error above. Check your API key in Admin.`;
+                 aiResponseText = `[Simulated ${model.name} Response]\n\nI received your message: "${content}".\n\nAttachments: ${attachments.length}\nMemory/System Prompt active: ${!!systemPrompt}`;
             }
         }
 
@@ -185,6 +276,11 @@ const DashboardPage = () => {
         setActiveMessages(finalChat.messages);
         setChats(chatStore.getChats());
 
+        // Generate Title if needed
+        if (isFirstMessage) {
+            generateTitle(content, activeChatId);
+        }
+
     } catch (err) {
         chatStore.addMessage(activeChatId, 'assistant', "Error generating response.");
     } finally {
@@ -195,7 +291,7 @@ const DashboardPage = () => {
   if (loading) return null;
 
   return (
-    <div className="flex h-screen w-full bg-[#F8F8F6] font-sans text-[#1A1A1A] overflow-hidden">
+    <div className="flex h-dvh w-full bg-[#F8F8F6] font-sans text-[#1A1A1A] overflow-hidden">
       <Sidebar
         user={user}
         chats={chats}
