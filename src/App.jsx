@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowUp, Command, Search, Sliders, Zap, Download, Palette, MousePointer2, Layout } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Palette, MousePointer2, Layout } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './App.css';
 import StickyScrollSection from './components/StickyScrollSection';
 import PricingSection from './components/PricingSection';
 import FAQSection from './components/FAQSection';
 import Footer from './components/Footer';
+import Navbar from './components/Navbar';
+import MoleculeIcon from './components/MoleculeIcon';
 
 function App() {
   const [heroTextIndex, setHeroTextIndex] = useState(0);
@@ -16,25 +18,12 @@ function App() {
       setHeroTextIndex((prev) => (prev + 1) % heroWords.length);
     }, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [heroWords.length]);
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center bg-[#F8F8F6] text-[#1A1A1A] font-sans relative">
       
-      {/* Floating Navbar */}
-      <nav className="fixed top-8 z-50 bg-[#1A1A1A] text-white px-1.5 py-1.5 rounded-full flex items-center gap-6 shadow-lg">
-        <div className="flex items-center gap-2 pl-3">
-          <MoleculeIcon className="w-5 h-5 text-white" mode="navbar" />
-          <span className="font-medium text-sm tracking-wide">Gaod</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <a href="#" className="text-xs font-medium text-gray-300 hover:text-white px-3 transition-colors">Log in</a>
-          <button className="bg-[#F2F2F2] text-[#1A1A1A] text-xs font-medium px-4 py-2 rounded-full hover:bg-white transition-colors flex items-center gap-2">
-            Request early access
-            <ArrowUp className="w-3 h-3 rotate-45" />
-          </button>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Main Content Wrapper */}
       <main className="flex-grow w-full max-w-6xl px-4 mt-32 z-10 flex flex-col items-center">
@@ -253,123 +242,5 @@ function App() {
     </div>
   );
 }
-
-// Advanced Animated Logo Component
-const MoleculeIcon = ({ className, mode = 'navbar' }) => {
-  const isHero = mode === 'hero';
-
-  const springTransition = {
-    type: "spring",
-    stiffness: 260,
-    damping: 20,
-  };
-
-  const circleVariant = {
-    hidden: { scale: 0, opacity: 0 },
-    visible: (i) => ({
-      scale: 1,
-      opacity: 1,
-      transition: {
-        ...springTransition,
-        delay: i * 0.1,
-      },
-    }),
-  };
-
-  const pathVariant = {
-    hidden: { pathLength: 0, opacity: 0 },
-    visible: (i) => ({
-      pathLength: 1,
-      opacity: 1,
-      transition: {
-        duration: 0.6,
-        ease: "easeInOut",
-        delay: i * 0.1,
-      },
-    }),
-  };
-
-  // Continuous animations only for Hero
-  const heroContainerVariant = {
-    animate: {
-      y: [0, -8, 0],
-      rotate: [0, 360],
-      transition: {
-        y: {
-          duration: 4,
-          repeat: Infinity,
-          ease: "easeInOut",
-        },
-        rotate: {
-          duration: 60, // Slow organic rotation
-          repeat: Infinity,
-          ease: "linear",
-        }
-      },
-    },
-  };
-
-  // Simple pulse for center atom in Hero
-  const centerPulseVariant = {
-    pulse: {
-      scale: [1, 1.1, 1],
-      transition: {
-        duration: 3,
-        repeat: Infinity,
-        ease: "easeInOut",
-      }
-    }
-  };
-
-  return (
-    <motion.svg
-      viewBox="0 0 100 100"
-      fill="currentColor"
-      className={className}
-      initial="hidden"
-      animate={isHero ? ["visible", "animate"] : "visible"}
-      whileHover={!isHero ? { rotate: 90, scale: 1.1 } : undefined} // Interactive hover for navbar
-      variants={isHero ? heroContainerVariant : undefined}
-    >
-      {/* Central Atom */}
-      <motion.circle 
-        cx="50" cy="50" r="12" 
-        variants={circleVariant} 
-        animate={isHero ? ["visible", "pulse"] : "visible"}
-        // Merge variants manually for the child pulse if needed, or use separate logic.
-        // Simplified: The parent `animate` prop propagates. We override for specific effect.
-      >
-          {isHero && (
-            <animateTransform 
-               attributeName="transform" 
-               type="scale" 
-               values="1; 1.1; 1" 
-               dur="3s" 
-               repeatCount="indefinite" 
-               additive="sum"
-            />
-          )}
-      </motion.circle>
-
-      {/* Bonds */}
-      <motion.path d="M50 38 L50 20" stroke="currentColor" strokeWidth="8" strokeLinecap="round" variants={pathVariant} custom={2} />
-      <motion.path d="M62 50 L80 50" stroke="currentColor" strokeWidth="8" strokeLinecap="round" variants={pathVariant} custom={2.5} />
-      <motion.path d="M50 62 L50 80" stroke="currentColor" strokeWidth="8" strokeLinecap="round" variants={pathVariant} custom={3} />
-      <motion.path d="M38 50 L20 50" stroke="currentColor" strokeWidth="8" strokeLinecap="round" variants={pathVariant} custom={3.5} />
-
-      {/* Main Outer Atoms */}
-      <motion.circle cx="50" cy="20" r="10" variants={circleVariant} custom={4} />
-      <motion.circle cx="80" cy="50" r="10" variants={circleVariant} custom={4.5} />
-      <motion.circle cx="50" cy="80" r="10" variants={circleVariant} custom={5} />
-      <motion.circle cx="20" cy="50" r="10" variants={circleVariant} custom={5.5} />
-
-      {/* Small Orbital Atoms */}
-      <motion.circle cx="29" cy="29" r="8" variants={circleVariant} custom={6} />
-      <motion.circle cx="71" cy="29" r="8" variants={circleVariant} custom={6.5} />
-      <motion.circle cx="71" cy="71" r="8" variants={circleVariant} custom={7} />
-      <motion.circle cx="29" cy="71" r="8" variants={circleVariant} custom={7.5} />
-    </motion.svg>
-  );
-};
 
 export default App;

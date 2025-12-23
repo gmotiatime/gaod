@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import img1 from '../assets/placeholder-1.svg';
 import img2 from '../assets/placeholder-2.svg';

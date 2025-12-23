@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 const LoginPage = () => {
@@ -7,7 +7,6 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [step, setStep] = useState(1); // 1: Email, 2: Password (simplified to one step for better UX as per screenshot 1, but user wants light theme of screenshot 2. Screenshot 2 has just email field visible initially. Let's do a single form for simplicity but styled like screenshot 2)
 
   // Actually, let's stick to the single form with both fields if possible, or progressive.
   // The user provided admin credentials, implying we need both.
