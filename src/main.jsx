@@ -5,6 +5,7 @@ import App from './App.jsx'
 import LoginPage from './LoginPage.jsx';
 import DesignPage from './pages/DesignPage.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
+import DashboardPage from './pages/DashboardPage.jsx';
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -14,6 +15,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/" element={<App />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/design" element={<DesignPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/admin" element={<AdminDashboard />} />
       </Routes>
     </BrowserRouter>

@@ -24,7 +24,7 @@ const LoginPage = () => {
         if (result.user.role === 'admin') {
           navigate('/admin');
         } else {
-          navigate('/');
+          navigate('/dashboard');
         }
       } else {
         setError(result.error);
