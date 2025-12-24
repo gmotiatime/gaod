@@ -7,47 +7,6 @@ import { cn } from '../../lib/utils';
 import MoleculeIcon from '../MoleculeIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- Typewriter Component ---
-const Typewriter = ({ text, onComplete }) => {
-  const [displayedText, setDisplayedText] = useState('');
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  useEffect(() => {
-    // If text is extremely long initially, or grows, this might lag.
-    // For streaming, we might skip this component.
-    if (currentIndex >= text.length) {
-        if (onComplete) onComplete();
-        return;
-    }
-
-    const timeout = setTimeout(() => {
-      setDisplayedText(prev => prev + text[currentIndex]);
-      setCurrentIndex(prev => prev + 1);
-    }, 12); // Slightly faster typing
-
-    return () => clearTimeout(timeout);
-  }, [currentIndex, text, onComplete]);
-
-  return (
-    <div className="prose prose-sm max-w-none prose-headings:font-serif prose-p:leading-relaxed prose-pre:bg-[#1e1e1e] prose-pre:text-gray-100 prose-pre:border prose-pre:border-gray-700 prose-code:text-red-500">
-       <ReactMarkdown
-         remarkPlugins={[remarkGfm]}
-         components={{
-              // eslint-disable-next-line no-unused-vars
-            img: ({node, ...props}) => <img {...props} className="rounded-xl border border-gray-200 shadow-lg my-3 max-w-full h-auto" />
-         }}
-       >
-         {displayedText}
-       </ReactMarkdown>
-    </div>
-  );
-};
-
-Typewriter.propTypes = {
-    text: PropTypes.string.isRequired,
-    onComplete: PropTypes.func
-};
-
 // --- Thinking Block ---
 const ThinkingBlock = ({ content }) => {
   const [isOpen, setIsOpen] = useState(true);
