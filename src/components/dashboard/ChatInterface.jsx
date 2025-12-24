@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import { Send, Paperclip, ChevronDown, User, Bot, Menu, Sparkles, X, File as FileIcon, ChevronRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeSanitize from 'rehype-sanitize';
 import { cn } from '../../lib/utils';
 import MoleculeIcon from '../MoleculeIcon';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,6 +31,7 @@ const Typewriter = ({ text, onComplete }) => {
     <div className="prose prose-sm max-w-none prose-headings:font-serif prose-p:leading-relaxed prose-pre:bg-[#1e1e1e] prose-pre:text-gray-100 prose-pre:border prose-pre:border-gray-700 prose-code:text-red-500">
        <ReactMarkdown
          remarkPlugins={[remarkGfm]}
+         rehypePlugins={[rehypeSanitize]}
          components={{
               // eslint-disable-next-line no-unused-vars
             img: ({node, ...props}) => <img {...props} className="rounded-xl border border-gray-200 shadow-lg my-3 max-w-full h-auto" />
@@ -272,6 +274,7 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
                            <div className="prose prose-sm max-w-none prose-headings:font-serif prose-p:leading-relaxed prose-pre:bg-[#1e1e1e] prose-pre:text-gray-100 prose-pre:border prose-pre:border-gray-700 prose-code:text-red-500">
                              <ReactMarkdown
                                remarkPlugins={[remarkGfm]}
+                               rehypePlugins={[rehypeSanitize]}
                                components={{
                                   // eslint-disable-next-line no-unused-vars
                                   img: ({node, ...props}) => <img {...props} className="rounded-xl border border-gray-200 shadow-lg my-3 max-w-full h-auto" />

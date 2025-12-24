@@ -6,6 +6,7 @@ import SettingsModal from '../components/dashboard/SettingsModal';
 import { auth } from '../lib/auth';
 import { chatStore } from '../lib/chatStore';
 import { db } from '../lib/db';
+import { Validator, chatRateLimiter, logger } from '../lib/security';
 
 const DashboardPage = () => {
   const navigate = useNavigate();
@@ -105,7 +106,33 @@ const DashboardPage = () => {
   const getUserMemoryKey = (uid) => `gaod_user_memory_${uid}`;
 
   const handleSendMessage = async (content, model, attachments = []) => {
-    if (!activeChatId || !user) return;
+    const reqId = logger.info('Message attempt', { userId: user?.id, chatLength: content?.length });
+
+    if (!activeChatId || !user) {
+        logger.warn('Message attempt failed: No active chat or user', { reqId });
+        return;
+    }
+
+    // 1. Rate Limiting Check
+    const rateLimit = chatRateLimiter.check(user.id, 'sendMessage');
+    if (!rateLimit.allowed) {
+        const msg = `Rate limit exceeded. Try again in ${Math.ceil((rateLimit.resetTime - Date.now()) / 1000)} seconds.`;
+        logger.warn('Rate limit hit', { userId: user.id, reqId });
+        // Optimistically add system message or alert
+        // Here we just don't send. In a better UI we'd show a toast.
+        // For now, we simulate a system response error.
+        await chatStore.addMessage(activeChatId, 'assistant', `[System] ${msg}`);
+        const updatedChat = await chatStore.getChat(activeChatId);
+        setActiveMessages(updatedChat.messages);
+        return;
+    }
+
+    // 2. Input Validation
+    const validation = Validator.validateMessage(content, 'user');
+    if (!validation.isValid) {
+        logger.warn('Validation failed', { errors: validation.errors, reqId });
+        return; // Or show error to user
+    }
 
     let finalContent = content;
     if (attachments.length > 0) {
@@ -127,6 +154,8 @@ const DashboardPage = () => {
         let aiResponseText = '';
 
         // Vertex Key only
+        // SECURITY NOTE: Key is fetched from DB (simulated server env) but used in client.
+        // This is a known architectural limitation of Client-Side-Only implementation.
         const vertexKey = await db.getSetting('gaod_vertex_key');
 
         const systemPrompt = (await db.getSetting('gaod_system_prompt')) || '';
@@ -195,7 +224,7 @@ These tags will be shown to the user to demonstrate your reasoning.
             }
 
         } catch (e) {
-            console.error("Chat API Call Failed", e);
+            logger.error("Chat API Call Failed", { error: e.message, reqId });
             aiResponseText = `[Error: ${e.message}]`;
         }
 
