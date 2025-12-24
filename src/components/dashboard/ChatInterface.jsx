@@ -13,6 +13,8 @@ const Typewriter = ({ text, onComplete }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
+    // If text is extremely long initially, or grows, this might lag.
+    // For streaming, we might skip this component.
     if (currentIndex >= text.length) {
         if (onComplete) onComplete();
         return;
@@ -82,7 +84,7 @@ ThinkingBlock.propTypes = {
   content: PropTypes.string.isRequired
 };
 
-const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
+const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu, availableModels = [] }) => {
   const [input, setInput] = useState('');
   const [selectedModel, setSelectedModel] = useState('GPT-4o');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -91,19 +93,17 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
-  const [typedMessageIds, setTypedMessageIds] = useState(new Set());
-  const [availableModels, setAvailableModels] = useState([]);
-
+  // Initialize selected model from props
   useEffect(() => {
-    const customModels = JSON.parse(localStorage.getItem('gaod_custom_models') || '[]');
-    setAvailableModels(customModels);
-
-    if (customModels.length > 0 && !customModels.find(m => m.name === selectedModel)) {
-        setSelectedModel(customModels[0].name);
-    } else if (customModels.length === 0) {
-        setSelectedModel('No Models');
+    if (availableModels.length > 0) {
+        // If current selected is not in available, select first
+        if (!availableModels.find(m => m.name === selectedModel)) {
+             setSelectedModel(availableModels[0].name);
+        }
+    } else {
+        setSelectedModel('Default Model');
     }
-  }, [selectedModel]);
+  }, [availableModels, selectedModel]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -139,6 +139,9 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
   };
 
   const parseMessageContent = (content) => {
+     // Safety check
+     if (!content) return { thoughts: null, cleanContent: '' };
+
      const thinkingRegex = /<thinking>([\s\S]*?)<\/thinking>/;
      const match = content.match(thinkingRegex);
 
@@ -148,10 +151,6 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
          return { thoughts, cleanContent };
      }
      return { thoughts: null, cleanContent: content };
-  };
-
-  const handleTypeComplete = (id) => {
-      setTypedMessageIds(prev => new Set(prev).add(id));
   };
 
   return (
@@ -177,6 +176,9 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
                 <div className="fixed inset-0 z-10" onClick={() => setIsDropdownOpen(false)} />
                 <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-100 rounded-xl shadow-xl shadow-gray-200/50 py-2 z-20 max-h-[60vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
                 <div className="px-4 py-2 text-[10px] font-mono uppercase text-gray-400 tracking-wider">Select Model</div>
+                {availableModels.length === 0 && (
+                    <div className="px-4 py-2 text-sm text-gray-400 italic">No models available</div>
+                )}
                 {availableModels.map((model) => (
                     <button
                     key={model.id + model.name}
@@ -211,10 +213,8 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
             </div>
         )}
 
-        {messages.map((msg, index) => {
+        {messages.map((msg) => {
             const { thoughts, cleanContent } = parseMessageContent(msg.content);
-            const isLastMessage = index === messages.length - 1;
-            const shouldType = isLastMessage && msg.role !== 'user' && !typedMessageIds.has(msg.id);
 
             return (
               <motion.div
@@ -259,28 +259,21 @@ const ChatInterface = ({ messages, onSendMessage, isTyping, onMobileMenu }) => {
                         <ThinkingBlock content={thoughts} />
                     )}
 
-                    {/* Markdown Content with Typewriter logic */}
+                    {/* Content */}
                     {msg.role === 'user' ? (
                        <div>{cleanContent}</div>
                     ) : (
-                       shouldType ? (
-                           <Typewriter
-                               text={cleanContent}
-                               onComplete={() => handleTypeComplete(msg.id)}
-                           />
-                       ) : (
-                           <div className="prose prose-sm max-w-none prose-headings:font-serif prose-p:leading-relaxed prose-pre:bg-[#1e1e1e] prose-pre:text-gray-100 prose-pre:border prose-pre:border-gray-700 prose-code:text-red-500">
-                             <ReactMarkdown
-                               remarkPlugins={[remarkGfm]}
-                               components={{
-                                  // eslint-disable-next-line no-unused-vars
-                                  img: ({node, ...props}) => <img {...props} className="rounded-xl border border-gray-200 shadow-lg my-3 max-w-full h-auto" />
-                               }}
-                             >
-                               {cleanContent}
-                             </ReactMarkdown>
-                           </div>
-                       )
+                       <div className="prose prose-sm max-w-none prose-headings:font-serif prose-p:leading-relaxed prose-pre:bg-[#1e1e1e] prose-pre:text-gray-100 prose-pre:border prose-pre:border-gray-700 prose-code:text-red-500">
+                         <ReactMarkdown
+                           remarkPlugins={[remarkGfm]}
+                           components={{
+                              // eslint-disable-next-line no-unused-vars
+                              img: ({node, ...props}) => <img {...props} className="rounded-xl border border-gray-200 shadow-lg my-3 max-w-full h-auto" />
+                           }}
+                         >
+                           {cleanContent}
+                         </ReactMarkdown>
+                       </div>
                     )}
                   </div>
                 </div>
@@ -390,7 +383,8 @@ ChatInterface.propTypes = {
   messages: PropTypes.array.isRequired,
   onSendMessage: PropTypes.func.isRequired,
   isTyping: PropTypes.bool,
-  onMobileMenu: PropTypes.func.isRequired
+  onMobileMenu: PropTypes.func.isRequired,
+  availableModels: PropTypes.array
 };
 
 export default ChatInterface;

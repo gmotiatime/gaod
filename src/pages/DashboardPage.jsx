@@ -16,13 +16,15 @@ const DashboardPage = () => {
   const [chats, setChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
   const [activeMessages, setActiveMessages] = useState([]);
+  // eslint-disable-next-line no-unused-vars
   const [isTyping, setIsTyping] = useState(false);
+  const [availableModels, setAvailableModels] = useState([]);
 
   // UI State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Load User
+  // Load User & Models
   useEffect(() => {
     const currentUser = auth.getCurrentUser();
     if (!currentUser) {
@@ -30,7 +32,19 @@ const DashboardPage = () => {
       return;
     }
     setUser(currentUser);
-    setLoading(false);
+
+    const loadSettings = async () => {
+        try {
+            const modelsStr = await db.getSetting('gaod_custom_models');
+            const models = modelsStr ? JSON.parse(modelsStr) : [];
+            setAvailableModels(models);
+        } catch (err) {
+            console.error("Failed to load models", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+    loadSettings();
   }, [navigate]);
 
   // Load Chats on Mount (Async now)
@@ -108,100 +122,119 @@ const DashboardPage = () => {
     if (!activeChatId || !user) return;
 
     let finalContent = content;
-    if (attachments.length > 0) {
-        finalContent += `\n\n[Attached ${attachments.length} file(s): ${attachments.map(a => a.name).join(', ')}]`;
-    }
+    if (attachments.length > 0) finalContent += `\n\n[Attached files...]`;
 
-    // Add User Message
     await chatStore.addMessage(activeChatId, 'user', finalContent);
+    const chatWithUserMsg = await chatStore.getChat(activeChatId);
+    let currentMessages = chatWithUserMsg.messages;
 
-    // Refresh UI
-    const updatedChat = await chatStore.getChat(activeChatId);
-    setChats(await chatStore.getChats(user.id));
-    setActiveMessages(updatedChat.messages);
-    setIsTyping(true);
+    // Temp Assistant Message
+    const tempAssistantId = Date.now() + 1;
+    currentMessages = [...currentMessages, { id: tempAssistantId, role: 'assistant', content: '', timestamp: new Date().toISOString() }];
+    setActiveMessages(currentMessages);
 
-    const isFirstMessage = updatedChat.messages.length <= 1;
+    let aiResponseText = '';
 
     try {
-        let aiResponseText = '';
-
-        // Vertex Key only
         const vertexKey = await db.getSetting('gaod_vertex_key');
-
         const systemPrompt = (await db.getSetting('gaod_system_prompt')) || '';
         const memKey = getUserMemoryKey(user.id);
         const userMemory = (await db.getSetting(memKey)) || "No previous memory.";
 
         const toolInstructions = `
-You are Gaod, an advanced creative AI.
-You have access to a long-term memory about this user and several tools.
-
-[LONG-TERM MEMORY START]
-${userMemory}
-[LONG-TERM MEMORY END]
-
-**Chain of Thought & Self-Correction:**
-Before answering, you MUST think step-by-step to plan your response.
-Wrap your thought process in <thinking>...</thinking> tags.
-Inside these tags, you can also use <reflection>...</reflection> to critique your own plan before finalizing the output.
-These tags will be shown to the user to demonstrate your reasoning.
-
-**Tools:**
-1. **UPDATE_MEMORY**: Save important facts, context, style preferences, or unresolved tasks.
-   Syntax: [UPDATE_MEMORY: <fact>]
-2. **EXECUTE_CODE**: Run simple JavaScript code (math, logic).
-   Syntax: [EXECUTE_CODE: <code>]
-
-**Guidelines:**
-- If you learn something new (e.g. user's job, favorite color), use [UPDATE_MEMORY].
-- Do not output tool results yourself (e.g., do not hallucinate search results), just output the tag. The system will handle it.
+You are Gaod.
+[LONG-TERM MEMORY]: ${userMemory}
+Wrap reasoning in <thinking>...</thinking>.
 `;
-
         const fullSystemPrompt = (systemPrompt ? systemPrompt + "\n" : "") + toolInstructions;
 
-        let usedRealApi = false;
+        if (vertexKey) {
+             const url = `https://aiplatform.googleapis.com/v1/publishers/google/models/${model.id}:streamGenerateContent?key=${vertexKey}`;
+             const payload = {
+                contents: [{ role: 'user', parts: [{ text: fullSystemPrompt + "\n\nUser: " + finalContent }] }]
+             };
 
-        // --- STANDARD TEXT CHAT (VERTEX ONLY) ---
-        try {
-            if (vertexKey) {
-                const url = `https://aiplatform.googleapis.com/v1/publishers/google/models/${model.id}:generateContent?key=${vertexKey}`;
+             const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+             });
 
-                const payload = {
-                    contents: [{
-                        role: 'user',
-                        parts: [{ text: fullSystemPrompt + "\n\nUser: " + finalContent }]
-                    }]
-                };
+             if (!response.ok) throw new Error(`API Error ${response.status}`);
 
-                const res = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+             const reader = response.body.getReader();
+             const decoder = new TextDecoder();
+             let buffer = '';
 
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    throw new Error(err.error?.message || `Vertex API Error ${res.status}`);
+             // eslint-disable-next-line no-constant-condition
+             while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+
+                // Parse Logic: Vertex returns array of objects like [{...}, {...}]
+                // We'll strip array brackets and parse objects by finding balanced braces
+
+                // Remove outer brackets if present at start
+                if (buffer.startsWith('[')) buffer = buffer.substring(1);
+
+                let depth = 0;
+                let start = 0;
+
+                for (let i = 0; i < buffer.length; i++) {
+                    if (buffer[i] === '{') {
+                        if (depth === 0) start = i;
+                        depth++;
+                    } else if (buffer[i] === '}') {
+                        depth--;
+                        if (depth === 0) {
+                            // Full object found
+                            const jsonStr = buffer.substring(start, i + 1);
+                            try {
+                                const json = JSON.parse(jsonStr);
+                                if (json.candidates?.[0]?.content?.parts?.[0]?.text) {
+                                    const chunkText = json.candidates[0].content.parts[0].text;
+                                    aiResponseText += chunkText;
+
+                                    // Update UI
+                                    setActiveMessages(prev => {
+                                        const newMsgs = [...prev];
+                                        const last = newMsgs[newMsgs.length - 1];
+                                        if (last.id === tempAssistantId) last.content = aiResponseText;
+                                        return newMsgs;
+                                    });
+                                }
+                            } catch(e) { /* ignore */ }
+
+                            // Advance buffer past this object and any comma
+                            // We need to slice buffer correctly.
+                            // Since we are iterating `i`, we can't slice immediately inside loop easily without adjusting `i`.
+                            // Better: process one, slice, break loop to restart on new buffer?
+                            // Yes.
+
+                            buffer = buffer.substring(i + 1);
+                            if (buffer.startsWith(',')) buffer = buffer.substring(1);
+                            if (buffer.startsWith(']')) buffer = buffer.substring(1); // End of stream
+
+                            // Restart loop on new buffer
+                            i = -1; // Next iteration will be 0
+                            start = 0;
+                        }
+                    }
                 }
-
-                const data = await res.json();
-                if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    aiResponseText = data.candidates[0].content.parts[0].text;
-                    usedRealApi = true;
-                }
-            } else {
-                throw new Error("No Vertex AI API Key configured.");
-            }
-
-        } catch (e) {
-            console.error("Chat API Call Failed", e);
-            aiResponseText = `[Error: ${e.message}]`;
+             }
+        } else {
+            aiResponseText = "No API Key.";
+             setActiveMessages(prev => {
+                const newMsgs = [...prev];
+                const last = newMsgs[newMsgs.length - 1];
+                if (last.id === tempAssistantId) last.content = aiResponseText;
+                return newMsgs;
+            });
         }
 
-        // --- TOOL PARSING & EXECUTION ---
-
-        // 1. UPDATE_MEMORY
+        // Post-processing (Memory/Code)
         const memRegex = /\[UPDATE_MEMORY:\s*(.*?)\]/g;
         let memMatch;
         let memoryUpdated = false;
@@ -214,49 +247,15 @@ These tags will be shown to the user to demonstrate your reasoning.
         }
         if (memoryUpdated) aiResponseText = aiResponseText.replace(memRegex, '').trim();
 
-        // 2. EXECUTE_CODE
-        const codeRegex = /\[EXECUTE_CODE:\s*(.*?)\]/g;
-        let codeMatch;
-        while ((codeMatch = codeRegex.exec(aiResponseText)) !== null) {
-             const code = codeMatch[1];
-             try {
-                // Safe(r) eval
-
-                const result = new Function(`return (${code})`)();
-                aiResponseText = aiResponseText.replace(codeMatch[0], `\`\`\`output\n${result}\n\`\`\``);
-             } catch (e) {
-                aiResponseText = aiResponseText.replace(codeMatch[0], `(Code Error: ${e.message})`);
-             }
-        }
-
-        if (!usedRealApi && !aiResponseText.startsWith('[Error') && !aiResponseText.includes('<thinking>')) {
-             await new Promise(resolve => setTimeout(resolve, 800));
-
-             // Simulation Logic for CoT
-             aiResponseText = `<thinking>
-I see the user wants to chat.
-User said: "${content}"
-I am running in simulation mode because the API call failed or no key was provided.
-<reflection>I should simulate a helpful Vertex AI response.</reflection>
-</thinking>
-
-[Simulated Vertex AI Response]
-I received: "${content}".
-`;
-        }
-
+        // Save final
         await chatStore.addMessage(activeChatId, 'assistant', aiResponseText);
-
+        setChats(await chatStore.getChats(user.id));
         const finalChat = await chatStore.getChat(activeChatId);
         setActiveMessages(finalChat.messages);
-        setChats(await chatStore.getChats(user.id));
-
-        if (isFirstMessage) generateTitle(content, activeChatId);
 
     } catch (err) {
-        await chatStore.addMessage(activeChatId, 'assistant', "Error generating response.");
-    } finally {
-        setIsTyping(false);
+        console.error(err);
+        await chatStore.addMessage(activeChatId, 'assistant', "Error: " + err.message);
     }
   };
 
@@ -281,6 +280,7 @@ I received: "${content}".
         onSendMessage={handleSendMessage}
         isTyping={isTyping}
         onMobileMenu={() => setIsSidebarOpen(true)}
+        availableModels={availableModels}
       />
 
       <SettingsModal
