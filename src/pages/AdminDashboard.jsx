@@ -2,7 +2,19 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../lib/auth';
 import { db } from '../lib/db';
-import { LogOut, Users, Shield, Key, Save, Plus, Trash2, Cpu, Brain, CheckCircle, Database } from 'lucide-react';
+import {
+  LogOut,
+  Users,
+  Shield,
+  Key,
+  Save,
+  Plus,
+  Trash2,
+  Cpu,
+  Brain,
+  CheckCircle,
+  Database,
+} from 'lucide-react';
 
 const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
@@ -17,10 +29,19 @@ const AdminDashboard = () => {
 
   // Custom Models
   const [customModels, setCustomModels] = useState([]);
-  const [newModel, setNewModel] = useState({ name: '', id: 'gemini-2.5-flash-lite', provider: 'vertex' });
+  const [newModel, setNewModel] = useState({
+    name: '',
+    id: 'gemini-2.5-flash-lite',
+    provider: 'vertex',
+  });
 
   // New User State
-  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'user' });
+  const [newUser, setNewUser] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'user',
+  });
   const [userError, setUserError] = useState('');
 
   const [savedMessage, setSavedMessage] = useState('');
@@ -36,20 +57,20 @@ const AdminDashboard = () => {
     setCurrentUser(user);
 
     const loadSettings = async () => {
-        try {
-            setVertexKey(await db.getSetting('gaod_vertex_key') || '');
-            setSystemPrompt(await db.getSetting('gaod_system_prompt') || '');
+      try {
+        setVertexKey((await db.getSetting('gaod_vertex_key')) || '');
+        setSystemPrompt((await db.getSetting('gaod_system_prompt')) || '');
 
-            const models = await db.getSetting('gaod_custom_models');
-            setCustomModels(models ? JSON.parse(models) : []);
+        const models = await db.getSetting('gaod_custom_models');
+        setCustomModels(models ? JSON.parse(models) : []);
 
-            const data = await auth.getAllUsers();
-            setUsers(data);
-        } catch (err) {
-            console.error("Error loading admin settings:", err);
-        } finally {
-            setLoading(false);
-        }
+        const data = await auth.getAllUsers();
+        setUsers(data);
+      } catch (err) {
+        console.error('Error loading admin settings:', err);
+      } finally {
+        setLoading(false);
+      }
     };
     loadSettings();
   }, [navigate]);
@@ -91,7 +112,7 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteModel = async (uuid) => {
-    const updatedModels = customModels.filter(m => m.uuid !== uuid);
+    const updatedModels = customModels.filter((m) => m.uuid !== uuid);
     setCustomModels(updatedModels);
     await db.setSetting('gaod_custom_models', JSON.stringify(updatedModels));
   };
@@ -119,16 +140,22 @@ const AdminDashboard = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F8F8F6] flex items-center justify-center">
-        <div className="animate-pulse text-gray-400">Loading admin panel...</div>
+        <div className="animate-pulse text-gray-400">
+          Loading admin panel...
+        </div>
       </div>
     );
   }
 
   // Styles from Design Kit
-  const cardClass = "bg-white rounded-2xl p-8 border border-gray-200 shadow-sm hover:shadow-md transition-shadow mb-8";
-  const inputClass = "w-full bg-white border border-gray-200 text-[#1A1A1A] placeholder-gray-400 text-sm rounded-xl focus:ring-1 focus:ring-black focus:border-black block w-full p-4 outline-none shadow-sm transition-all";
-  const primaryButtonClass = "bg-[#1A1A1A] text-white font-medium py-3 px-6 rounded-full hover:bg-black transition-colors shadow-lg hover:shadow-xl text-sm flex items-center gap-2 transform active:scale-95 duration-100";
-  const sectionHeaderClass = "mb-6 border-b border-gray-100 pb-4 flex items-center gap-3";
+  const cardClass =
+    'bg-white rounded-2xl p-8 border border-gray-200 shadow-sm hover:shadow-md transition-shadow mb-8';
+  const inputClass =
+    'w-full bg-white border border-gray-200 text-[#1A1A1A] placeholder-gray-400 text-sm rounded-xl focus:ring-1 focus:ring-black focus:border-black block w-full p-4 outline-none shadow-sm transition-all';
+  const primaryButtonClass =
+    'bg-[#1A1A1A] text-white font-medium py-3 px-6 rounded-full hover:bg-black transition-colors shadow-lg hover:shadow-xl text-sm flex items-center gap-2 transform active:scale-95 duration-100';
+  const sectionHeaderClass =
+    'mb-6 border-b border-gray-100 pb-4 flex items-center gap-3';
 
   return (
     <div className="min-h-screen bg-[#F8F8F6] font-sans text-[#1A1A1A]">
@@ -137,7 +164,9 @@ const AdminDashboard = () => {
           <div className="bg-[#1A1A1A] text-white p-2 rounded-xl shadow-lg">
             <Shield className="w-5 h-5" />
           </div>
-          <span className="font-serif text-xl font-bold tracking-tight">Gaod Admin</span>
+          <span className="font-serif text-xl font-bold tracking-tight">
+            Gaod Admin
+          </span>
         </div>
         <div className="flex items-center gap-6">
           <div className="text-xs text-gray-500 font-mono bg-gray-100 px-3 py-1 rounded-full border border-gray-200">
@@ -155,45 +184,58 @@ const AdminDashboard = () => {
 
       <main className="max-w-6xl mx-auto p-8 lg:p-12">
         <header className="mb-12">
-          <h1 className="font-serif text-5xl mb-4 text-[#1A1A1A] tracking-tight">Dashboard</h1>
-          <p className="text-gray-500 text-lg max-w-2xl font-light">Manage system configuration, AI models, and user access securely.</p>
+          <h1 className="font-serif text-5xl mb-4 text-[#1A1A1A] tracking-tight">
+            Dashboard
+          </h1>
+          <p className="text-gray-500 text-lg max-w-2xl font-light">
+            Manage system configuration, AI models, and user access securely.
+          </p>
         </header>
 
         {/* Database Connection Status */}
         <div className={cardClass}>
-           <div className={sectionHeaderClass}>
-             <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
-                <Database className="w-5 h-5" />
-             </div>
-             <h2 className="font-serif text-2xl">Database Status</h2>
-           </div>
+          <div className={sectionHeaderClass}>
+            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+              <Database className="w-5 h-5" />
+            </div>
+            <h2 className="font-serif text-2xl">Database Status</h2>
+          </div>
 
-           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-               <div>
-                   <div className="flex items-center gap-3 p-4 bg-green-50 text-green-700 rounded-xl border border-green-100 mb-4">
-                       <CheckCircle className="w-5 h-5" />
-                       <span className="font-medium">Connected to Supabase</span>
-                   </div>
-                   <p className="text-sm text-gray-600 mb-2 leading-relaxed">
-                       The system is configured to use the managed Supabase instance.
-                   </p>
-                   <p className="text-xs text-gray-400 font-mono bg-gray-50 p-3 rounded-lg border border-gray-100 break-all">
-                       URL: https://hbpowbnojimuolkgquqr.supabase.co
-                   </p>
-               </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <div>
+              <div className="flex items-center gap-3 p-4 bg-green-50 text-green-700 rounded-xl border border-green-100 mb-4">
+                <CheckCircle className="w-5 h-5" />
+                <span className="font-medium">Connected to Supabase</span>
+              </div>
+              <p className="text-sm text-gray-600 mb-2 leading-relaxed">
+                The system is configured to use the managed Supabase instance.
+              </p>
+              <p className="text-xs text-gray-400 font-mono bg-gray-50 p-3 rounded-lg border border-gray-100 break-all">
+                URL: https://hbpowbnojimuolkgquqr.supabase.co
+              </p>
+            </div>
 
-               <div className="bg-[#1e1e1e] rounded-2xl p-6 shadow-inner ring-1 ring-white/10 relative group">
-                   <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
-                       <span className="text-[10px] text-gray-400 font-mono uppercase tracking-widest">SQL Schema Reference</span>
-                       <button
-                         className="text-xs text-blue-400 hover:text-blue-300 font-mono bg-blue-500/10 px-2 py-1 rounded transition-colors"
-                         onClick={() => navigator.clipboard.writeText(document.getElementById('sql-code').innerText)}
-                       >
-                           Copy SQL
-                       </button>
-                   </div>
-                   <pre id="sql-code" className="text-[11px] font-mono text-gray-300 whitespace-pre-wrap h-40 overflow-y-auto custom-scrollbar selection:bg-blue-500/30">
-{`-- Run this in Supabase SQL Editor if tables are missing
+            <div className="bg-[#1e1e1e] rounded-2xl p-6 shadow-inner ring-1 ring-white/10 relative group">
+              <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                <span className="text-[10px] text-gray-400 font-mono uppercase tracking-widest">
+                  SQL Schema Reference
+                </span>
+                <button
+                  className="text-xs text-blue-400 hover:text-blue-300 font-mono bg-blue-500/10 px-2 py-1 rounded transition-colors"
+                  onClick={() =>
+                    navigator.clipboard.writeText(
+                      document.getElementById('sql-code').innerText
+                    )
+                  }
+                >
+                  Copy SQL
+                </button>
+              </div>
+              <pre
+                id="sql-code"
+                className="text-[11px] font-mono text-gray-300 whitespace-pre-wrap h-40 overflow-y-auto custom-scrollbar selection:bg-blue-500/30"
+              >
+                {`-- Run this in Supabase SQL Editor if tables are missing
 
 create table if not exists app_users (
   id text primary key,
@@ -227,68 +269,69 @@ alter table chats enable row level security;
 create policy "Public Users" on app_users for all using (true);
 create policy "Public Settings" on app_settings for all using (true);
 create policy "Public Chats" on chats for all using (true);`}
-                   </pre>
-               </div>
-           </div>
+              </pre>
+            </div>
+          </div>
         </div>
 
         {/* Global Memory */}
         <div className={cardClass}>
-           <div className={sectionHeaderClass}>
-             <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
-                <Brain className="w-5 h-5" />
-             </div>
-             <h2 className="font-serif text-2xl">Global Memory</h2>
-           </div>
-           <p className="text-sm text-gray-500 mb-6">
-             Define the core persona and instructions prepended to every chat session.
-           </p>
-           <form onSubmit={handleSaveSystem} className="space-y-4">
-              <textarea
-                 value={systemPrompt}
-                 onChange={(e) => setSystemPrompt(e.target.value)}
-                 className="w-full bg-white border border-gray-200 text-[#1A1A1A] placeholder-gray-400 text-sm rounded-xl focus:ring-1 focus:ring-black focus:border-black block w-full p-6 outline-none shadow-sm min-h-[160px] resize-y font-mono leading-relaxed"
-                 placeholder="You are Gaod, a creative assistant..."
-              />
-              <div className="flex justify-end">
-                <button type="submit" className={primaryButtonClass}>
-                    <Save className="w-4 h-4" /> Save Memory
-                </button>
-              </div>
-           </form>
+          <div className={sectionHeaderClass}>
+            <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
+              <Brain className="w-5 h-5" />
+            </div>
+            <h2 className="font-serif text-2xl">Global Memory</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-6">
+            Define the core persona and instructions prepended to every chat
+            session.
+          </p>
+          <form onSubmit={handleSaveSystem} className="space-y-4">
+            <textarea
+              value={systemPrompt}
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              className="w-full bg-white border border-gray-200 text-[#1A1A1A] placeholder-gray-400 text-sm rounded-xl focus:ring-1 focus:ring-black focus:border-black block w-full p-6 outline-none shadow-sm min-h-[160px] resize-y font-mono leading-relaxed"
+              placeholder="You are Gaod, a creative assistant..."
+            />
+            <div className="flex justify-end">
+              <button type="submit" className={primaryButtonClass}>
+                <Save className="w-4 h-4" /> Save Memory
+              </button>
+            </div>
+          </form>
         </div>
 
         {/* API Configuration */}
         <div className={cardClass}>
           <div className={sectionHeaderClass}>
-             <div className="p-2 bg-yellow-50 rounded-lg text-yellow-600">
-                <Key className="w-5 h-5" />
-             </div>
-             <h2 className="font-serif text-2xl">API Credentials</h2>
+            <div className="p-2 bg-yellow-50 rounded-lg text-yellow-600">
+              <Key className="w-5 h-5" />
+            </div>
+            <h2 className="font-serif text-2xl">API Credentials</h2>
           </div>
 
           <form onSubmit={handleSaveKeys} className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-widest mb-2">Vertex AI API Key (Google Cloud)</label>
-                  <input
-                    type="password"
-                    value={vertexKey}
-                    onChange={(e) => setVertexKey(e.target.value)}
-                    placeholder="AQ.Ab..."
-                    className={inputClass}
-                  />
-                  <p className="text-[10px] text-gray-400 mt-2">
-                      Access to models like gemini-2.5-flash-lite via aiplatform.googleapis.com
-                  </p>
-                </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-widest mb-2">
+                  Vertex AI API Key (Google Cloud)
+                </label>
+                <input
+                  type="password"
+                  value={vertexKey}
+                  onChange={(e) => setVertexKey(e.target.value)}
+                  placeholder="AQ.Ab..."
+                  className={inputClass}
+                />
+                <p className="text-[10px] text-gray-400 mt-2">
+                  Access to models like gemini-2.5-flash-lite via
+                  aiplatform.googleapis.com
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center gap-4 pt-4 border-t border-gray-100">
-              <button
-                type="submit"
-                className={primaryButtonClass}
-              >
+              <button type="submit" className={primaryButtonClass}>
                 <Save className="w-4 h-4" />
                 Save Keys
               </button>
@@ -304,52 +347,72 @@ create policy "Public Chats" on chats for all using (true);`}
         {/* Custom Models */}
         <div className={cardClass}>
           <div className={sectionHeaderClass}>
-             <div className="p-2 bg-green-50 rounded-lg text-green-600">
-                <Cpu className="w-5 h-5" />
-             </div>
-             <h2 className="font-serif text-2xl">Chat Models</h2>
+            <div className="p-2 bg-green-50 rounded-lg text-green-600">
+              <Cpu className="w-5 h-5" />
+            </div>
+            <h2 className="font-serif text-2xl">Chat Models</h2>
           </div>
 
           <div className="mb-8">
             <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
-               <h3 className="text-xs font-medium text-gray-500 uppercase tracking-widest mb-4">Add New Model</h3>
-               <form onSubmit={handleAddModel} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                  <div className="md:col-span-1">
-                    <label className="block text-xs text-gray-400 mb-1">Display Name</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Gemini 2.5 Flash"
-                      value={newModel.name}
-                      onChange={(e) => setNewModel({...newModel, name: e.target.value})}
-                      className={inputClass}
-                    />
-                  </div>
-                  <div className="md:col-span-1">
-                    <label className="block text-xs text-gray-400 mb-1">Model ID</label>
-                    <input
-                      type="text"
-                      placeholder="gemini-2.5-flash-lite"
-                      value={newModel.id}
-                      onChange={(e) => setNewModel({...newModel, id: e.target.value})}
-                      className={inputClass}
-                    />
-                  </div>
-                  <div className="md:col-span-1">
-                    <label className="block text-xs text-gray-400 mb-1">Provider</label>
-                    <select
-                       value={newModel.provider}
-                       onChange={(e) => setNewModel({...newModel, provider: e.target.value})}
-                       className={inputClass}
-                    >
-                      <option value="vertex">Vertex AI</option>
-                    </select>
-                  </div>
-                  <div className="md:col-span-1">
-                    <button type="submit" className="w-full bg-white border border-gray-200 text-[#1A1A1A] font-medium px-4 py-3.5 rounded-xl hover:bg-black hover:text-white hover:border-transparent transition-all shadow-sm flex items-center justify-center gap-2">
-                       <Plus className="w-4 h-4" /> Add
-                    </button>
-                  </div>
-               </form>
+              <h3 className="text-xs font-medium text-gray-500 uppercase tracking-widest mb-4">
+                Add New Model
+              </h3>
+              <form
+                onSubmit={handleAddModel}
+                className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end"
+              >
+                <div className="md:col-span-1">
+                  <label className="block text-xs text-gray-400 mb-1">
+                    Display Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Gemini 2.5 Flash"
+                    value={newModel.name}
+                    onChange={(e) =>
+                      setNewModel({ ...newModel, name: e.target.value })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="block text-xs text-gray-400 mb-1">
+                    Model ID
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="gemini-2.5-flash-lite"
+                    value={newModel.id}
+                    onChange={(e) =>
+                      setNewModel({ ...newModel, id: e.target.value })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="block text-xs text-gray-400 mb-1">
+                    Provider
+                  </label>
+                  <select
+                    value={newModel.provider}
+                    onChange={(e) =>
+                      setNewModel({ ...newModel, provider: e.target.value })
+                    }
+                    className={inputClass}
+                  >
+                    <option value="vertex">Vertex AI</option>
+                  </select>
+                </div>
+                <div className="md:col-span-1">
+                  <button
+                    type="submit"
+                    className="w-full bg-white border border-gray-200 text-[#1A1A1A] font-medium px-4 py-3.5 rounded-xl hover:bg-black hover:text-white hover:border-transparent transition-all shadow-sm flex items-center justify-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" /> Add
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
 
@@ -366,15 +429,25 @@ create policy "Public Chats" on chats for all using (true);`}
               <tbody className="divide-y divide-gray-100 bg-white">
                 {customModels.length === 0 ? (
                   <tr>
-                    <td colSpan="4" className="px-6 py-8 text-center text-gray-400 italic">
+                    <td
+                      colSpan="4"
+                      className="px-6 py-8 text-center text-gray-400 italic"
+                    >
                       No custom models configured.
                     </td>
                   </tr>
                 ) : (
                   customModels.map((model) => (
-                    <tr key={model.uuid} className="hover:bg-gray-50/50 transition-colors group">
-                      <td className="px-6 py-4 font-medium text-[#1A1A1A]">{model.name}</td>
-                      <td className="px-6 py-4 text-gray-500 font-mono text-xs">{model.id}</td>
+                    <tr
+                      key={model.uuid}
+                      className="hover:bg-gray-50/50 transition-colors group"
+                    >
+                      <td className="px-6 py-4 font-medium text-[#1A1A1A]">
+                        {model.name}
+                      </td>
+                      <td className="px-6 py-4 text-gray-500 font-mono text-xs">
+                        {model.id}
+                      </td>
                       <td className="px-6 py-4">
                         <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 text-xs font-medium capitalize border border-gray-200">
                           {model.provider}
@@ -401,68 +474,94 @@ create policy "Public Chats" on chats for all using (true);`}
         <div className={cardClass}>
           <div className={sectionHeaderClass}>
             <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
-                <Users className="w-5 h-5" />
+              <Users className="w-5 h-5" />
             </div>
             <h2 className="font-serif text-2xl">User Registry</h2>
           </div>
 
           <div className="mb-8">
             <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
-               <h3 className="text-xs font-medium text-gray-500 uppercase tracking-widest mb-4">Add New User</h3>
-               <form onSubmit={handleAddUser} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-                  <div className="md:col-span-1">
-                    <label className="block text-xs text-gray-400 mb-1">Full Name</label>
-                    <input
-                      type="text"
-                      placeholder="John Doe"
-                      value={newUser.name}
-                      onChange={(e) => setNewUser({...newUser, name: e.target.value})}
-                      className={inputClass}
-                      required
-                    />
-                  </div>
-                  <div className="md:col-span-1">
-                    <label className="block text-xs text-gray-400 mb-1">Email Address</label>
-                    <input
-                      type="email"
-                      placeholder="john@example.com"
-                      value={newUser.email}
-                      onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-                      className={inputClass}
-                      required
-                    />
-                  </div>
-                  <div className="md:col-span-1">
-                    <label className="block text-xs text-gray-400 mb-1">Password</label>
-                    <input
-                      type="password"
-                      placeholder="••••••••"
-                      value={newUser.password}
-                      onChange={(e) => setNewUser({...newUser, password: e.target.value})}
-                      className={inputClass}
-                      required
-                    />
-                  </div>
-                  <div className="md:col-span-1">
-                    <label className="block text-xs text-gray-400 mb-1">Role</label>
-                    <select
-                       value={newUser.role}
-                       onChange={(e) => setNewUser({...newUser, role: e.target.value})}
-                       className={inputClass}
-                    >
-                      <option value="user">User</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </div>
-                  <div className="md:col-span-1">
-                    <button type="submit" className="w-full bg-white border border-gray-200 text-[#1A1A1A] font-medium px-4 py-3.5 rounded-xl hover:bg-black hover:text-white hover:border-transparent transition-all shadow-sm flex items-center justify-center gap-2">
-                       <Plus className="w-4 h-4" /> Add User
-                    </button>
-                  </div>
-               </form>
-               {userError && (
-                 <p className="text-red-500 text-xs mt-3 bg-red-50 p-2 rounded-lg inline-block">{userError}</p>
-               )}
+              <h3 className="text-xs font-medium text-gray-500 uppercase tracking-widest mb-4">
+                Add New User
+              </h3>
+              <form
+                onSubmit={handleAddUser}
+                className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end"
+              >
+                <div className="md:col-span-1">
+                  <label className="block text-xs text-gray-400 mb-1">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="John Doe"
+                    value={newUser.name}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, name: e.target.value })
+                    }
+                    className={inputClass}
+                    required
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="block text-xs text-gray-400 mb-1">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="john@example.com"
+                    value={newUser.email}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, email: e.target.value })
+                    }
+                    className={inputClass}
+                    required
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="block text-xs text-gray-400 mb-1">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={newUser.password}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, password: e.target.value })
+                    }
+                    className={inputClass}
+                    required
+                  />
+                </div>
+                <div className="md:col-span-1">
+                  <label className="block text-xs text-gray-400 mb-1">
+                    Role
+                  </label>
+                  <select
+                    value={newUser.role}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, role: e.target.value })
+                    }
+                    className={inputClass}
+                  >
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div className="md:col-span-1">
+                  <button
+                    type="submit"
+                    className="w-full bg-white border border-gray-200 text-[#1A1A1A] font-medium px-4 py-3.5 rounded-xl hover:bg-black hover:text-white hover:border-transparent transition-all shadow-sm flex items-center justify-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" /> Add User
+                  </button>
+                </div>
+              </form>
+              {userError && (
+                <p className="text-red-500 text-xs mt-3 bg-red-50 p-2 rounded-lg inline-block">
+                  {userError}
+                </p>
+              )}
             </div>
           </div>
 
@@ -479,15 +578,22 @@ create policy "Public Chats" on chats for all using (true);`}
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
                 {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-[#1A1A1A]">{user.name || 'N/A'}</td>
+                  <tr
+                    key={user.id}
+                    className="hover:bg-gray-50/50 transition-colors"
+                  >
+                    <td className="px-6 py-4 font-medium text-[#1A1A1A]">
+                      {user.name || 'N/A'}
+                    </td>
                     <td className="px-6 py-4 text-gray-600">{user.email}</td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                        user.role === 'admin'
-                          ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]'
-                          : 'bg-white text-gray-600 border-gray-200'
-                      }`}>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                          user.role === 'admin'
+                            ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]'
+                            : 'bg-white text-gray-600 border-gray-200'
+                        }`}
+                      >
                         {user.role}
                       </span>
                     </td>

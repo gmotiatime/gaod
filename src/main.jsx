@@ -1,12 +1,12 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
+import React from 'react';
+import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import App from './App.jsx'
+import App from './App.jsx';
 import LoginPage from './LoginPage.jsx';
 import DesignPage from './pages/DesignPage.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
-import './index.css'
+import './index.css';
 import { initDB } from './lib/db';
 
 // Initialize Database (Seed Admin if needed)
@@ -23,5 +23,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/admin" element={<AdminDashboard />} />
       </Routes>
     </BrowserRouter>
-  </React.StrictMode>,
-)
+  </React.StrictMode>
+);
