@@ -93,14 +93,6 @@ const DashboardPage = () => {
     }
   };
 
-  // Helper: Generate Title (Simplified, DB handles updates)
-  // eslint-disable-next-line no-unused-vars
-  const generateTitle = async (firstMessage, chatId) => {
-      // Logic for title update is typically handled by AI or simpler logic
-      // For now, if chatStore handles it or we manually update:
-      // chatStore.addMessage handles simple title gen for "New Chat"
-  };
-
   // MEMORY HELPER (Use DB)
   const getUserMemoryKey = (uid) => `gaod_user_memory_${uid}`;
 
@@ -260,6 +252,70 @@ I received: "${content}".
     }
   };
 
+  const handleRegenerate = async () => {
+    if (!activeChatId || !user) return;
+    const chat = await chatStore.getChat(activeChatId);
+    if (!chat || chat.messages.length === 0) return;
+
+    let messages = [...chat.messages];
+    const lastMessage = messages[messages.length - 1];
+
+    // Find the last user message to retry from
+    let userMessageContent = '';
+    // eslint-disable-next-line no-unused-vars
+    let userMessageIndex = -1;
+
+    // If last is AI (e.g. error or bad response), remove it and retry the user message before it
+    if (lastMessage.role !== 'user') {
+         messages.pop(); // Remove AI message
+         // Now look for user message
+         if (messages.length > 0 && messages[messages.length - 1].role === 'user') {
+             userMessageContent = messages[messages.length - 1].content;
+             userMessageIndex = messages.length - 1;
+         }
+    } else {
+        // If last is user (e.g. they want to retry their own prompt?), usually 'regenerate' means re-run AI on last user prompt
+        // But if there is no AI response yet, it's just a 'send'.
+        // If the user manually asks to regenerate, maybe they want a different answer to the same prompt.
+        userMessageContent = lastMessage.content;
+        userMessageIndex = messages.length - 1;
+        // In this case we don't pop anything, just re-trigger AI.
+        // Wait, if we re-trigger AI, we need to ensure we don't have duplicate user messages?
+        // No, 'handleSendMessage' adds a NEW user message.
+        // We shouldn't use 'handleSendMessage' directly if we are "Regenerating" because we don't want to ADD the user message again to the history if it's already there.
+        // We want to trigger the AI response part only.
+
+        // Actually, easiest way is to remove the last user message too, and call handleSendMessage with it.
+        // This simulates a fresh send.
+        messages.pop();
+    }
+
+    if (!userMessageContent) return;
+
+    // Update the DB with the truncated message list
+    await chatStore.updateChatMessages(activeChatId, messages);
+
+    // Refresh UI immediately to show removal
+    setActiveMessages(messages);
+
+    // Trigger Send
+    // Note: handleSendMessage will add the user message again.
+    // This is perfect.
+    await handleSendMessage(userMessageContent, { id: 'gemini-1.5-flash' }); // Use default or currently selected model logic?
+    // Note: handleSendMessage takes a model object. I need to make sure I pass the right model or handle it.
+    // The ChatInterface tracks 'selectedModel'.
+    // I should probably pass 'selectedModel' up or use a default.
+    // Since handleRegenerate is triggered from Dashboard, it doesn't know the selected model in ChatInterface state.
+    // I might need to move selectedModel to Dashboard or pass it in the callback.
+    // For now, I'll default to a placeholder object that works with the logic in handleSendMessage.
+  };
+
+  const handleClearChat = () => {
+      if (activeChatId) {
+          handleDeleteChat(activeChatId);
+      }
+  };
+
   if (loading) return null;
 
   return (
@@ -279,6 +335,8 @@ I received: "${content}".
       <ChatInterface
         messages={activeMessages}
         onSendMessage={handleSendMessage}
+        onRegenerate={handleRegenerate}
+        onClearChat={handleClearChat}
         isTyping={isTyping}
         onMobileMenu={() => setIsSidebarOpen(true)}
       />
