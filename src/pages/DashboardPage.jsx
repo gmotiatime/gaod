@@ -16,7 +16,6 @@ const DashboardPage = () => {
   const [chats, setChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
   const [activeMessages, setActiveMessages] = useState([]);
-  // eslint-disable-next-line no-unused-vars
   const [isTyping, setIsTyping] = useState(false);
   const [availableModels, setAvailableModels] = useState([]);
 
@@ -123,6 +122,8 @@ const DashboardPage = () => {
 
     let finalContent = content;
     if (attachments.length > 0) finalContent += `\n\n[Attached files...]`;
+
+    setIsTyping(true);
 
     await chatStore.addMessage(activeChatId, 'user', finalContent);
     const chatWithUserMsg = await chatStore.getChat(activeChatId);
@@ -256,6 +257,8 @@ Wrap reasoning in <thinking>...</thinking>.
     } catch (err) {
         console.error(err);
         await chatStore.addMessage(activeChatId, 'assistant', "Error: " + err.message);
+    } finally {
+        setIsTyping(false);
     }
   };
 
