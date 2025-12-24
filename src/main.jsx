@@ -9,6 +9,18 @@ import DashboardPage from './pages/DashboardPage.jsx';
 import './index.css'
 import { initDB } from './lib/db';
 
+// Environment Check
+const requiredEnvVars = [
+  'VITE_SUPABASE_URL',
+  'VITE_SUPABASE_ANON_KEY'
+];
+
+requiredEnvVars.forEach(key => {
+  if (!import.meta.env[key]) {
+    console.error(`[CRITICAL] Missing environment variable: ${key}`);
+  }
+});
+
 // Initialize Database (Seed Admin if needed)
 initDB();
 
