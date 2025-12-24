@@ -10,8 +10,9 @@ export const supabaseAdapter = {
         .eq('key', key)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-          console.error('Error fetching setting:', error);
+      if (error && error.code !== 'PGRST116') {
+        // PGRST116 is "not found"
+        console.error('Error fetching setting:', error);
       }
       return data?.value || null;
     } catch (err) {
@@ -28,8 +29,8 @@ export const supabaseAdapter = {
         .upsert({ key, value }, { onConflict: 'key' });
 
       if (error) {
-          console.error('Error saving setting:', error);
-          return false;
+        console.error('Error saving setting:', error);
+        return false;
       }
       return true;
     } catch (err) {
@@ -48,8 +49,9 @@ export const supabaseAdapter = {
         .single();
 
       if (error) {
-          if (error.code !== 'PGRST116') console.error('Error fetching user:', error);
-          return null;
+        if (error.code !== 'PGRST116')
+          console.error('Error fetching user:', error);
+        return null;
       }
       return data;
     } catch (err) {
@@ -63,14 +65,16 @@ export const supabaseAdapter = {
       // user object should match table columns: id, email, password, name, role, created_at
       const { data, error } = await supabase
         .from('app_users')
-        .insert([{
+        .insert([
+          {
             id: user.id,
             email: user.email,
             password: user.password,
             name: user.name,
             role: user.role,
-            created_at: user.createdAt // Ensure casing matches if needed, but schema says created_at
-        }])
+            created_at: user.createdAt, // Ensure casing matches if needed, but schema says created_at
+          },
+        ])
         .select()
         .single();
 
@@ -86,23 +90,23 @@ export const supabaseAdapter = {
   },
 
   updateUser: async (id, updates) => {
-      // Not strictly needed for the plan but good to have
-      try {
-          const { data, error } = await supabase
-            .from('app_users')
-            .update(updates)
-            .eq('id', id)
-            .select()
-            .single();
+    // Not strictly needed for the plan but good to have
+    try {
+      const { data, error } = await supabase
+        .from('app_users')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
 
-          if(error) {
-              console.error('Error updating user', error);
-              return null;
-          }
-          return data;
-      } catch (err) {
-          return null;
+      if (error) {
+        console.error('Error updating user', error);
+        return null;
       }
+      return data;
+    } catch (err) {
+      return null;
+    }
   },
 
   // --- CHATS ---
@@ -122,13 +126,13 @@ export const supabaseAdapter = {
       // Map back to frontend expected structure if needed
       // Frontend expects: id, title, messages (json), createdAt, updatedAt
       // DB columns: id, user_id, title, messages (jsonb), created_at, updated_at
-      return data.map(chat => ({
-          id: chat.id,
-          userId: chat.user_id,
-          title: chat.title,
-          messages: chat.messages || [],
-          createdAt: chat.created_at,
-          updatedAt: chat.updated_at
+      return data.map((chat) => ({
+        id: chat.id,
+        userId: chat.user_id,
+        title: chat.title,
+        messages: chat.messages || [],
+        createdAt: chat.created_at,
+        updatedAt: chat.updated_at,
       }));
     } catch (err) {
       console.error('Exception fetching chats:', err);
@@ -140,28 +144,30 @@ export const supabaseAdapter = {
     try {
       const { data, error } = await supabase
         .from('chats')
-        .insert([{
+        .insert([
+          {
             id: chat.id,
             user_id: chat.userId, // Note: DB column is user_id
             title: chat.title,
             messages: chat.messages,
             created_at: chat.createdAt,
-            updated_at: chat.createdAt
-        }])
+            updated_at: chat.createdAt,
+          },
+        ])
         .select()
         .single();
 
       if (error) {
-          console.error('Error creating chat:', error);
-          return null;
+        console.error('Error creating chat:', error);
+        return null;
       }
       return {
-          id: data.id,
-          userId: data.user_id,
-          title: data.title,
-          messages: data.messages,
-          createdAt: data.created_at,
-          updatedAt: data.updated_at
+        id: data.id,
+        userId: data.user_id,
+        title: data.title,
+        messages: data.messages,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
       };
     } catch (err) {
       console.error('Exception creating chat:', err);
@@ -185,16 +191,16 @@ export const supabaseAdapter = {
         .single();
 
       if (error) {
-          console.error('Error updating chat:', error);
-          return null;
+        console.error('Error updating chat:', error);
+        return null;
       }
       return {
-          id: data.id,
-          userId: data.user_id,
-          title: data.title,
-          messages: data.messages,
-          createdAt: data.created_at,
-          updatedAt: data.updated_at
+        id: data.id,
+        userId: data.user_id,
+        title: data.title,
+        messages: data.messages,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
       };
     } catch (err) {
       console.error('Exception updating chat:', err);
@@ -204,14 +210,11 @@ export const supabaseAdapter = {
 
   deleteChat: async (id) => {
     try {
-      const { error } = await supabase
-        .from('chats')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('chats').delete().eq('id', id);
 
       if (error) {
-          console.error('Error deleting chat:', error);
-          return false;
+        console.error('Error deleting chat:', error);
+        return false;
       }
       return true;
     } catch (err) {
@@ -233,16 +236,16 @@ export const supabaseAdapter = {
       // Return plain objects, ensure camelCase if needed by frontend,
       // but current table matches DB columns mostly.
       // Frontend expects: id, name, email, role, createdAt
-      return data.map(u => ({
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          role: u.role,
-          createdAt: u.created_at
+      return data.map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        createdAt: u.created_at,
       }));
     } catch (err) {
       console.error('Exception fetching all users:', err);
       return [];
     }
-  }
+  },
 };

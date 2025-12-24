@@ -5,19 +5,19 @@ const SESSION_KEY = 'brand_ai_session';
 export const auth = {
   login: async (email, password) => {
     try {
-        const user = await db.getUserByEmail(email);
+      const user = await db.getUserByEmail(email);
 
-        if (user && user.password === password) {
-          // eslint-disable-next-line no-unused-vars
-          const { password: _, ...userWithoutPassword } = user;
-          localStorage.setItem(SESSION_KEY, JSON.stringify(userWithoutPassword));
-          return { success: true, user: userWithoutPassword };
-        }
+      if (user && user.password === password) {
+        // eslint-disable-next-line no-unused-vars
+        const { password: _, ...userWithoutPassword } = user;
+        localStorage.setItem(SESSION_KEY, JSON.stringify(userWithoutPassword));
+        return { success: true, user: userWithoutPassword };
+      }
 
-        return { success: false, error: 'Invalid email or password' };
+      return { success: false, error: 'Invalid email or password' };
     } catch (error) {
-        console.error("Login error:", error);
-        return { success: false, error: 'Login failed due to system error' };
+      console.error('Login error:', error);
+      return { success: false, error: 'Login failed due to system error' };
     }
   },
 
@@ -70,7 +70,7 @@ export const auth = {
 
     // Let's use `db.getAllUsers()` and I will make sure to update the adapter to support it.
     if (db.getAllUsers) {
-        return await db.getAllUsers();
+      return await db.getAllUsers();
     }
 
     return [];
@@ -84,30 +84,29 @@ export const auth = {
     }
 
     try {
-        const existingUser = await db.getUserByEmail(userData.email);
-        if (existingUser) {
-          return { success: false, error: 'Email already exists' };
-        }
+      const existingUser = await db.getUserByEmail(userData.email);
+      if (existingUser) {
+        return { success: false, error: 'Email already exists' };
+      }
 
-        const newUser = {
-          id: `user-${Date.now()}`, // Or let Supabase handle ID if UUID? But schema said text primary key.
-          createdAt: new Date().toISOString(),
-          ...userData
-        };
+      const newUser = {
+        id: `user-${Date.now()}`, // Or let Supabase handle ID if UUID? But schema said text primary key.
+        createdAt: new Date().toISOString(),
+        ...userData,
+      };
 
-        const createdUser = await db.createUser(newUser);
+      const createdUser = await db.createUser(newUser);
 
-        if (createdUser) {
-             // eslint-disable-next-line no-unused-vars
-            const { password: _, ...userWithoutPassword } = createdUser;
-            return { success: true, user: userWithoutPassword };
-        } else {
-             return { success: false, error: 'Failed to create user in DB' };
-        }
-
+      if (createdUser) {
+        // eslint-disable-next-line no-unused-vars
+        const { password: _, ...userWithoutPassword } = createdUser;
+        return { success: true, user: userWithoutPassword };
+      } else {
+        return { success: false, error: 'Failed to create user in DB' };
+      }
     } catch (err) {
-        console.error("Create user error:", err);
-        return { success: false, error: 'System error' };
+      console.error('Create user error:', err);
+      return { success: false, error: 'System error' };
     }
-  }
+  },
 };

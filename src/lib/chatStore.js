@@ -15,11 +15,11 @@ export const chatStore = {
     // But `chatStore` is often called from UI where user is known.
     // Let's modify to accept userId as per adapter signature.
     if (!userId) {
-        const session = localStorage.getItem('brand_ai_session');
-        if (session) {
-            const user = JSON.parse(session);
-            userId = user.id;
-        }
+      const session = localStorage.getItem('brand_ai_session');
+      if (session) {
+        const user = JSON.parse(session);
+        userId = user.id;
+      }
     }
 
     if (!userId) return [];
@@ -30,14 +30,14 @@ export const chatStore = {
   // Create a new chat
   createChat: async (firstMessage = null, userId) => {
     if (!userId) {
-        const session = localStorage.getItem('brand_ai_session');
-        if (session) {
-            const user = JSON.parse(session);
-            userId = user.id;
-        }
+      const session = localStorage.getItem('brand_ai_session');
+      if (session) {
+        const user = JSON.parse(session);
+        userId = user.id;
+      }
     }
 
-    if (!userId) throw new Error("User ID required to create chat");
+    if (!userId) throw new Error('User ID required to create chat');
 
     const newChat = {
       id: Date.now().toString(), // Simple ID generation
@@ -45,8 +45,15 @@ export const chatStore = {
       title: firstMessage ? firstMessage.substring(0, 30) + '...' : 'New Chat',
       createdAt: new Date().toISOString(),
       messages: firstMessage
-        ? [{ id: Date.now(), role: 'user', content: firstMessage, timestamp: new Date().toISOString() }]
-        : []
+        ? [
+            {
+              id: Date.now(),
+              role: 'user',
+              content: firstMessage,
+              timestamp: new Date().toISOString(),
+            },
+          ]
+        : [],
     };
 
     return await db.createChat(newChat);
@@ -69,18 +76,18 @@ export const chatStore = {
   // I'll leave `getChat` as a helper that might need to call `getChats` or we assume the UI handles state.
   // Actually, standard pattern: `await chatStore.getChat(id)`
   getChat: async (chatId) => {
-      // This is inefficient if we don't have a direct fetch.
-      // But typically we load all chats on sidebar load.
-      // If we need a specific one, we might need to query it.
-      // Let's use `getChats` with the current user?
-      // Issue: we don't know the user ID here easily without session.
-      const session = localStorage.getItem('brand_ai_session');
-      if (session) {
-          const user = JSON.parse(session);
-          const chats = await db.getChats(user.id);
-          return chats.find(c => c.id === chatId) || null;
-      }
-      return null;
+    // This is inefficient if we don't have a direct fetch.
+    // But typically we load all chats on sidebar load.
+    // If we need a specific one, we might need to query it.
+    // Let's use `getChats` with the current user?
+    // Issue: we don't know the user ID here easily without session.
+    const session = localStorage.getItem('brand_ai_session');
+    if (session) {
+      const user = JSON.parse(session);
+      const chats = await db.getChats(user.id);
+      return chats.find((c) => c.id === chatId) || null;
+    }
+    return null;
   },
 
   // Add message to chat
@@ -97,7 +104,7 @@ export const chatStore = {
       id: Date.now(),
       role,
       content,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     const updatedMessages = [...(chat.messages || []), newMessage];
@@ -105,12 +112,12 @@ export const chatStore = {
     // Update title if needed
     let updatedTitle = chat.title;
     if (updatedMessages.length === 1 && chat.title === 'New Chat') {
-       updatedTitle = content.substring(0, 30) + '...';
+      updatedTitle = content.substring(0, 30) + '...';
     }
 
     const updates = {
-        messages: updatedMessages,
-        title: updatedTitle
+      messages: updatedMessages,
+      title: updatedTitle,
     };
 
     return await db.updateChat(chatId, updates);
@@ -127,6 +134,6 @@ export const chatStore = {
   // We can probably skip or implement if needed.
   // Let's skip for now as it's dangerous on a real DB.
   clearAll: async () => {
-    console.warn("clearAll not supported in Supabase mode safely yet.");
-  }
+    console.warn('clearAll not supported in Supabase mode safely yet.');
+  },
 };
